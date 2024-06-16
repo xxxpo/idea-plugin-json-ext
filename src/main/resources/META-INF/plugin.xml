@@ -1,0 +1,222 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>com.xxxlin.json.ext</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <name>JSON Extend</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor email="" url="https://github.com/xxxpo">吴书华</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+    <description><![CDATA[
+<h3>JSON Extend，for all JetBrains IDEs to support</h3>
+<ul>
+<li>support find JSON's property key reference</li>
+<li>go to JSON's property key declaration</li>
+<li>support line comment/block comment</li>
+</ul>
+<h3>Support Language</h3>
+<ul>
+<li>java</li>
+<li>kotlin</li>
+</ul>
+<h3>扩展 JSON，适应JetBrains全家桶</h3>
+<ul>
+<li>支持查找 JSON 键值引用</li>
+<li>转到 JSON 键值定义</li>
+<li>支持行注释/块注释</li>
+</ul>
+<h3>支持语言</h3>
+<ul>
+<li>java</li>
+<li>kotlin</li>
+  ]]></description>
+
+    <change-notes><![CDATA[
+<h3>v0.0.1</h3>
+<li>支持查找 JSON 键值引用</li>
+<li>转到 JSON 键值定义</li>
+<li>支持行注释/块注释</li>
+]]></change-notes>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
+
+    <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 定义语言 -->
+        <fileType
+                name="JSON File"
+                implementationClass="com.xxxlin.json.JsonFileType"
+                fieldName="INSTANCE"
+                language="json-ext"
+                extensions="json"/>
+
+        <!-- 语法结构 -->
+        <lang.parserDefinition
+                language="json-ext"
+                implementationClass="com.xxxlin.json.JsonParserDefinition"/>
+
+        <!-- 语法高亮 -->
+        <lang.syntaxHighlighterFactory
+                language="json-ext"
+                implementationClass="com.xxxlin.json.highlighting.JsonSyntaxHighlighterFactory"/>
+
+        <!-- 括号匹配 -->
+        <lang.braceMatcher
+                language="json-ext"
+                implementationClass="com.xxxlin.json.JsonBraceMatcher"/>
+
+        <!-- 注释器 -->
+        <lang.commenter
+                language="json-ext"
+                implementationClass="com.xxxlin.json.editor.JsonCommenter"/>
+
+        <!-- 代码提示 -->
+        <completion.contributor
+                language="json-ext"
+                implementationClass="com.xxxlin.json.codeinsight.JsonCompletionContributor"/>
+
+        <!-- 查找使用 -->
+        <lang.findUsagesProvider
+                language="json-ext"
+                implementationClass="com.xxxlin.json.findUsages.JsonFindUsagesProvider"/>
+
+        <!-- 结构视图 -->
+        <lang.psiStructureViewFactory
+                language="json-ext"
+                implementationClass="com.xxxlin.json.structureView.JsonStructureViewBuilderFactory"/>
+
+        <!-- 面包屑 -->
+        <breadcrumbsInfoProvider
+                implementation="com.xxxlin.json.breadcrumbs.JsonBreadcrumbsProvider"/>
+
+        <!-- 重复key警告 -->
+        <localInspection
+                language="json-ext"
+                shortName="JsonExtDuplicatePropertyKeys"
+                bundle="messages.JsonBundle"
+                key="inspection.duplicate.keys.name"
+                groupKey="json.inspection.group"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.xxxlin.json.codeinsight.JsonDuplicatePropertyKeysInspection"/>
+
+        <lang.foldingBuilder
+                language="json-ext"
+                implementationClass="com.xxxlin.json.editor.folding.JsonFoldingBuilder"/>
+
+        <!-- 代码上下移动逻辑 -->
+        <statementUpDownMover
+                implementation="com.xxxlin.json.editor.lineMover.JsonLineMover"
+                id="json-ext"
+                order="before line"/>
+
+        <!-- 单词扩展选择逻辑 -->
+        <extendWordSelectionHandler
+                implementation="com.xxxlin.json.editor.selection.JsonStringLiteralSelectionHandler"/>
+
+        <lang.smartEnterProcessor
+                language="json-ext"
+                implementationClass="com.xxxlin.json.editor.smartEnter.JsonSmartEnterProcessor"/>
+
+        <enterHandlerDelegate
+                implementation="com.xxxlin.json.editor.JsonEnterHandler"
+                id="JsonExtEnterHandler"/>
+
+        <editorSmartKeysConfigurable
+                instance="com.xxxlin.json.editor.JsonSmartKeysConfigurable"
+                id="editor.preferences.jsonOptions"/>
+
+        <!-- 代码样式和格式化 -->
+        <codeStyleSettingsProvider
+                implementation="com.xxxlin.json.formatter.JsonCodeStyleSettingsProvider"/>
+        <lang.formatter
+                language="json-ext"
+                implementationClass="com.xxxlin.json.formatter.JsonFormattingBuilderModel"/>
+        <langCodeStyleSettingsProvider
+                implementation="com.xxxlin.json.formatter.JsonLanguageCodeStyleSettingsProvider"/>
+        <lang.lineWrapStrategy
+                language="json-ext"
+                implementationClass="com.xxxlin.json.formatter.JsonLineWrapPositionStrategy"/>
+        <preFormatProcessor
+                implementation="com.xxxlin.json.formatter.JsonTrailingCommaRemover"/>
+        <!-- 主题颜色设置 -->
+        <!--        <colorSettingsPage-->
+        <!--                implementation="com.xxxlin.json.highlighting.JsonColorsPage"/>-->
+        <highlightVisitor
+                implementation="com.xxxlin.json.highlighting.JsonRainbowVisitor"/>
+
+        <!-- 高亮key -->
+        <annotator
+                language="json-ext"
+                implementationClass="com.xxxlin.json.codeinsight.JsonLiteralAnnotator"/>
+
+
+        <intentionAction>
+            <language>json-ext</language>
+            <className>com.xxxlin.json.intentions.JsonSortPropertiesIntention</className>
+            <bundleName>messages.JsonBundle</bundleName>
+            <categoryKey>json.intention.category.name</categoryKey>
+        </intentionAction>
+
+        <lang.surroundDescriptor
+                language="json-ext"
+                implementationClass="com.xxxlin.json.surroundWith.JsonSurroundDescriptor"/>
+
+        <lang.namesValidator
+                language="json-ext"
+                implementationClass="com.xxxlin.json.JsonNamesValidator"/>
+
+        <quoteHandler
+                fileType="JSON"
+                className="com.xxxlin.json.JsonQuoteHandler"/>
+
+        <!-- 网址高亮 -->
+        <psi.referenceContributor
+                language="json-ext"
+                implementation="com.xxxlin.json.JsonWebReferenceContributor"/>
+
+        <json.jsonExtLiteralChecker
+                implementation="com.xxxlin.json.codeinsight.StandardJsonLiteralChecker"/>
+
+
+        <!-- ########## 扩展其它语言 ####### -->
+        <!-- 字符串注解 java -->
+        <annotator
+                language="JAVA"
+                implementationClass="com.xxxlin.json.annotator.JavaAnnotator"/>
+
+        <!-- 字符串注解 kotlin -->
+        <annotator
+                language="kotlin"
+                implementationClass="com.xxxlin.json.annotator.KotlinAnnotator"/>
+
+        <!-- 查找引用信息 java -->
+        <psi.referenceContributor
+                language="JAVA"
+                implementation="com.xxxlin.json.reference.JsonKeyNameReferenceContributorByJava"/>
+
+        <!-- 查找引用信息 kotlin -->
+        <psi.referenceContributor
+                language="kotlin"
+                implementation="com.xxxlin.json.reference.JsonKeyNameReferenceContributorByKotlin"/>
+
+    </extensions>
+
+    <extensionPoints>
+        <extensionPoint
+                qualifiedName="com.xxxlin.json.jsonExtLiteralChecker"
+                interface="com.xxxlin.json.codeinsight.JsonExtLiteralChecker"
+                dynamic="true"/>
+    </extensionPoints>
+</idea-plugin>
