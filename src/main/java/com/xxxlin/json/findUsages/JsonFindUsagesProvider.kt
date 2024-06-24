@@ -1,51 +1,43 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.findUsages;
+package com.xxxlin.json.findUsages
 
-import com.intellij.lang.HelpID;
-import com.intellij.lang.cacheBuilder.WordsScanner;
-import com.intellij.lang.findUsages.FindUsagesProvider;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiNamedElement;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.lang.HelpID
+import com.intellij.lang.cacheBuilder.WordsScanner
+import com.intellij.lang.findUsages.FindUsagesProvider
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiNamedElement
+import com.xxxlin.json.JsonBundle
+import com.xxxlin.json.psi.JsonProperty
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonFindUsagesProvider implements FindUsagesProvider {
-    @Override
-    public @Nullable WordsScanner getWordsScanner() {
-        return new JsonWordScanner();
+class JsonFindUsagesProvider : FindUsagesProvider {
+    override fun getWordsScanner(): WordsScanner {
+        return JsonWordScanner()
     }
 
-    @Override
-    public boolean canFindUsagesFor(@NotNull PsiElement psiElement) {
-        return psiElement instanceof PsiNamedElement;
+    override fun canFindUsagesFor(psiElement: PsiElement): Boolean {
+        return psiElement is PsiNamedElement
     }
 
-    @Override
-    public @Nullable String getHelpId(@NotNull PsiElement psiElement) {
-        return HelpID.FIND_OTHER_USAGES;
+    override fun getHelpId(psiElement: PsiElement): String {
+        return HelpID.FIND_OTHER_USAGES
     }
 
-    @Override
-    public @NotNull String getType(@NotNull PsiElement element) {
-        if (element instanceof JsonProperty) {
-            return com.xxxlin.json.JsonBundle.message("json.property");
+    override fun getType(element: PsiElement): String {
+        if (element is JsonProperty) {
+            return JsonBundle.message("json.property")
         }
-        return "";
+        return ""
     }
 
-    @Override
-    public @NotNull String getDescriptiveName(@NotNull PsiElement element) {
-        final String name = element instanceof PsiNamedElement ? ((PsiNamedElement) element).getName() : null;
-        return name != null ? name : JsonBundle.message("unnamed.desc");
+    override fun getDescriptiveName(element: PsiElement): String {
+        val name = if (element is PsiNamedElement) element.name else null
+        return name ?: JsonBundle.message("unnamed.desc")
     }
 
-    @Override
-    public @NotNull String getNodeText(@NotNull PsiElement element, boolean useFullName) {
-        return getDescriptiveName(element);
+    override fun getNodeText(element: PsiElement, useFullName: Boolean): String {
+        return getDescriptiveName(element)
     }
 }

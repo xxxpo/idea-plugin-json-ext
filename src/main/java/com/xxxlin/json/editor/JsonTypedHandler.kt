@@ -1,197 +1,207 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.editor;
+package com.xxxlin.json.editor
 
-import com.intellij.codeInsight.CodeInsightSettings;
-import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
-import com.intellij.codeInsight.editorActions.smartEnter.SmartEnterProcessor;
-import com.xxxlin.json.JsonDialectUtil;
-import com.xxxlin.json.JsonElementTypes;
-import com.xxxlin.json.psi.*;
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.*;
-import com.intellij.psi.tree.TokenSet;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.util.PsiUtilCore;
-import com.xxxlin.json.psi.JsonFile;
-import org.jetbrains.annotations.NotNull;
+import com.intellij.codeInsight.CodeInsightSettings
+import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
+import com.intellij.codeInsight.editorActions.smartEnter.SmartEnterProcessor
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.fileTypes.FileType
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.psi.*
+import com.intellij.psi.tree.TokenSet
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.PsiUtilCore
+import com.xxxlin.json.JsonDialectUtil
+import com.xxxlin.json.JsonElementTypes
+import com.xxxlin.json.editor.JsonEditorOptions.Companion.instance
+import com.xxxlin.json.psi.*
 
-public final class JsonTypedHandler extends TypedHandlerDelegate {
+class JsonTypedHandler : TypedHandlerDelegate() {
+    private var myWhitespaceAdded = false
 
-  private boolean myWhitespaceAdded;
-
-  @Override
-  public @NotNull Result charTyped(char c, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
-    if (file instanceof com.xxxlin.json.psi.JsonFile) {
-      processPairedBracesComma(c, editor, file);
-      addWhiteSpaceAfterColonIfNeeded(c, editor, file);
-      removeRedundantWhitespaceIfAfterColon(c, editor, file);
-      handleMoveOutsideQuotes(c, editor, file);
-    }
-    return Result.CONTINUE;
-  }
-
-  private static void handleMoveOutsideQuotes(char c, Editor editor, PsiFile file) {
-    JsonEditorOptions options = JsonEditorOptions.getInstance();
-    if (c == ':' && options.COLON_MOVE_OUTSIDE_QUOTES || c == ',' && options.COMMA_MOVE_OUTSIDE_QUOTES) {
-      int offset = editor.getCaretModel().getOffset();
-      CharSequence sequence = editor.getDocument().getCharsSequence();
-      int length = sequence.length();
-      if (offset >= length || offset < 0) return;
-      char charAtOffset = sequence.charAt(offset);
-      if (charAtOffset != '"') return;
-      if (offset + 1 < length && sequence.charAt(offset + 1) == c) return;
-      final PsiElement element = file.findElementAt(offset);
-      if (element == null) return;
-      if (!validatePositionToMoveOutOfQuotes(c, element)) return;
-      PsiDocumentManager.getInstance(file.getProject()).commitDocument(editor.getDocument());
-      editor.getDocument().deleteString(offset - 1, offset);
-      editor.getDocument().insertString(offset, String.valueOf(c));
-      CharSequence newSequence = editor.getDocument().getCharsSequence();
-      int nextOffset = offset + 1;
-      if (c == ':' && options.AUTO_WHITESPACE_AFTER_COLON) {
-        char nextChar = nextOffset >= newSequence.length() ? 'a' : newSequence.charAt(nextOffset);
-        if (!Character.isWhitespace(nextChar) || nextChar == '\n') {
-          editor.getDocument().insertString(nextOffset, " ");
-          nextOffset++;
+    override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
+        if (file is JsonFile) {
+            processPairedBracesComma(c, editor, file)
+            addWhiteSpaceAfterColonIfNeeded(c, editor, file)
+            removeRedundantWhitespaceIfAfterColon(c, editor, file)
+            handleMoveOutsideQuotes(c, editor, file)
         }
-      }
-      editor.getCaretModel().moveToOffset(nextOffset);
-    }
-  }
-
-  private static boolean validatePositionToMoveOutOfQuotes(char c, PsiElement element) {
-    // comma can be after the element, but only the comma
-    if (PsiUtilCore.getElementType(element) == JsonElementTypes.R_CURLY) {
-      return c == ',' && element.getPrevSibling() instanceof JsonProperty;
-    }
-    if (PsiUtilCore.getElementType(element) == JsonElementTypes.R_BRACKET) {
-      return c == ',' && element.getPrevSibling() instanceof JsonStringLiteral;
+        return Result.CONTINUE
     }
 
-    // we can have a whitespace in the position, but again - only for the comma
-    PsiElement parent = element.getParent();
-    if (element instanceof PsiWhiteSpace && c == ',') {
-      PsiElement sibling = element.getPrevSibling();
-      return sibling instanceof JsonProperty || sibling instanceof JsonStringLiteral;
+    private fun removeRedundantWhitespaceIfAfterColon(c: Char, editor: Editor, file: PsiFile) {
+        if (!myWhitespaceAdded || c != ' ' || !instance.AUTO_WHITESPACE_AFTER_COLON) {
+            if (c != ':') {
+                myWhitespaceAdded = false
+            }
+            return
+        }
+        val offset = editor.caretModel.offset
+        PsiDocumentManager.getInstance(file.project).commitDocument(editor.document)
+        val element = file.findElementAt(offset)
+        if (element is PsiWhiteSpace) {
+            editor.document.deleteString(offset - 1, offset)
+        }
+        myWhitespaceAdded = false
     }
 
-    // the most ordinary case - literal property key or value
-    PsiElement grandParent = parent instanceof JsonStringLiteral ? parent.getParent() : null;
-    return grandParent instanceof JsonProperty
-           && (c != ':' || ((JsonProperty)grandParent).getNameElement() == parent)
-           && (c != ',' || ((JsonProperty)grandParent).getValue() == parent);
-  }
+    override fun beforeCharTyped(
+        c: Char,
+        project: Project,
+        editor: Editor,
+        file: PsiFile,
+        fileType: FileType
+    ): Result {
+        if (file is JsonFile) {
+            addPropertyNameQuotesIfNeeded(c, editor, file)
+        }
+        return Result.CONTINUE
+    }
 
-  private void removeRedundantWhitespaceIfAfterColon(char c, Editor editor, PsiFile file) {
-    if (!myWhitespaceAdded || c != ' ' || !JsonEditorOptions.getInstance().AUTO_WHITESPACE_AFTER_COLON) {
-      if (c != ':') {
-        myWhitespaceAdded = false;
-      }
-      return;
+    private fun addWhiteSpaceAfterColonIfNeeded(
+        c: Char,
+        editor: Editor,
+        file: PsiFile
+    ) {
+        if (c != ':' || !instance.AUTO_WHITESPACE_AFTER_COLON) {
+            if (c != ' ') {
+                myWhitespaceAdded = false
+            }
+            return
+        }
+        val offset = editor.caretModel.offset
+        PsiDocumentManager.getInstance(file.project).commitDocument(editor.document)
+        val element: PsiElement? = PsiTreeUtil.getParentOfType(
+            PsiTreeUtil.skipWhitespacesBackward(file.findElementAt(offset)),
+            JsonProperty::class.java,
+            false
+        )
+        if (element == null) {
+            myWhitespaceAdded = false
+            return
+        }
+        val children = element.node.getChildren(TokenSet.create(JsonElementTypes.COLON))
+        if (children.isEmpty()) {
+            myWhitespaceAdded = false
+            return
+        }
+        val colon = children[0]
+        val next = colon.treeNext
+        val text = next.text
+        if (text.isEmpty() || !StringUtil.isEmptyOrSpaces(text) || StringUtil.isLineBreak(
+                text[0]
+            )
+        ) {
+            val insOffset = colon.startOffset + 1
+            editor.document.insertString(insOffset, " ")
+            editor.caretModel.moveToOffset(insOffset + 1)
+            myWhitespaceAdded = true
+        } else {
+            myWhitespaceAdded = false
+        }
     }
-    int offset = editor.getCaretModel().getOffset();
-    PsiDocumentManager.getInstance(file.getProject()).commitDocument(editor.getDocument());
-    final PsiElement element = file.findElementAt(offset);
-    if (element instanceof PsiWhiteSpace) {
-      editor.getDocument().deleteString(offset - 1, offset);
-    }
-    myWhitespaceAdded = false;
-  }
 
-  @Override
-  public @NotNull Result beforeCharTyped(char c,
-                                         @NotNull Project project,
-                                         @NotNull Editor editor,
-                                         @NotNull PsiFile file,
-                                         @NotNull FileType fileType) {
-    if (file instanceof JsonFile) {
-      addPropertyNameQuotesIfNeeded(c, editor, file);
-    }
-    return Result.CONTINUE;
-  }
+    companion object {
+        private fun handleMoveOutsideQuotes(c: Char, editor: Editor, file: PsiFile) {
+            val options = instance
+            if (c == ':' && options.COLON_MOVE_OUTSIDE_QUOTES || c == ',' && options.COMMA_MOVE_OUTSIDE_QUOTES) {
+                val offset = editor.caretModel.offset
+                val sequence = editor.document.charsSequence
+                val length = sequence.length
+                if (offset >= length || offset < 0) return
+                val charAtOffset = sequence[offset]
+                if (charAtOffset != '"') return
+                if (offset + 1 < length && sequence[offset + 1] == c) return
+                val element = file.findElementAt(offset) ?: return
+                if (!validatePositionToMoveOutOfQuotes(c, element)) return
+                PsiDocumentManager.getInstance(file.project).commitDocument(editor.document)
+                editor.document.deleteString(offset - 1, offset)
+                editor.document.insertString(offset, c.toString())
+                val newSequence = editor.document.charsSequence
+                var nextOffset = offset + 1
+                if (c == ':' && options.AUTO_WHITESPACE_AFTER_COLON) {
+                    val nextChar = if (nextOffset >= newSequence.length) 'a' else newSequence[nextOffset]
+                    if (!Character.isWhitespace(nextChar) || nextChar == '\n') {
+                        editor.document.insertString(nextOffset, " ")
+                        nextOffset++
+                    }
+                }
+                editor.caretModel.moveToOffset(nextOffset)
+            }
+        }
 
-  private void addWhiteSpaceAfterColonIfNeeded(char c,
-                                               @NotNull Editor editor,
-                                               @NotNull PsiFile file) {
-    if (c != ':' || !JsonEditorOptions.getInstance().AUTO_WHITESPACE_AFTER_COLON) {
-      if (c != ' ') {
-        myWhitespaceAdded = false;
-      }
-      return;
-    }
-    int offset = editor.getCaretModel().getOffset();
-    PsiDocumentManager.getInstance(file.getProject()).commitDocument(editor.getDocument());
-    PsiElement element = PsiTreeUtil.getParentOfType(PsiTreeUtil.skipWhitespacesBackward(file.findElementAt(offset)), JsonProperty.class, false);
-    if (element == null) {
-      myWhitespaceAdded = false;
-      return;
-    }
-    final ASTNode[] children = element.getNode().getChildren(TokenSet.create(JsonElementTypes.COLON));
-    if (children.length == 0) {
-      myWhitespaceAdded = false;
-      return;
-    }
-    final ASTNode colon = children[0];
-    final ASTNode next = colon.getTreeNext();
-    final String text = next.getText();
-    if (text.length() == 0 || !StringUtil.isEmptyOrSpaces(text) || StringUtil.isLineBreak(text.charAt(0))) {
-      final int insOffset = colon.getStartOffset() + 1;
-      editor.getDocument().insertString(insOffset, " ");
-      editor.getCaretModel().moveToOffset(insOffset + 1);
-      myWhitespaceAdded = true;
-    }
-    else {
-      myWhitespaceAdded = false;
-    }
-  }
+        private fun validatePositionToMoveOutOfQuotes(c: Char, element: PsiElement): Boolean {
+            // comma can be after the element, but only the comma
+            if (PsiUtilCore.getElementType(element) === JsonElementTypes.R_CURLY) {
+                return c == ',' && element.prevSibling is JsonProperty
+            }
+            if (PsiUtilCore.getElementType(element) === JsonElementTypes.R_BRACKET) {
+                return c == ',' && element.prevSibling is JsonStringLiteral
+            }
 
-  private static void addPropertyNameQuotesIfNeeded(char c,
-                                                    @NotNull Editor editor,
-                                                    @NotNull PsiFile file) {
-    if (c != ':' || !JsonDialectUtil.isStandardJson(file) || !JsonEditorOptions.getInstance().AUTO_QUOTE_PROP_NAME) return;
-    int offset = editor.getCaretModel().getOffset();
-    PsiElement element = PsiTreeUtil.skipWhitespacesBackward(file.findElementAt(offset));
-    if (!(element instanceof JsonProperty)) return;
-    final JsonValue nameElement = ((JsonProperty)element).getNameElement();
-    if (nameElement instanceof JsonReferenceExpression) {
-      ((JsonProperty)element).setName(nameElement.getText());
-      PsiDocumentManager.getInstance(file.getProject()).doPostponedOperationsAndUnblockDocument(editor.getDocument());
-    }
-  }
+            // we can have a whitespace in the position, but again - only for the comma
+            val parent = element.parent
+            if (element is PsiWhiteSpace && c == ',') {
+                val sibling = element.getPrevSibling()
+                return sibling is JsonProperty || sibling is JsonStringLiteral
+            }
 
-  public static void processPairedBracesComma(char c,
-                                              @NotNull Editor editor,
-                                              @NotNull PsiFile file) {
-    if (!JsonEditorOptions.getInstance().COMMA_ON_MATCHING_BRACES) return;
-    if (c != '[' && c != '{' && c != '"' && c != '\'') return;
-    SmartEnterProcessor.commitDocument(editor);
-    int offset = editor.getCaretModel().getOffset();
-    PsiElement element = file.findElementAt(offset);
-    if (element == null) return;
-    PsiElement parent = element.getParent();
-    CodeInsightSettings codeInsightSettings = CodeInsightSettings.getInstance();
-    if ((c == '[' && parent instanceof JsonArray
-         || c == '{' && parent instanceof JsonObject) && codeInsightSettings.AUTOINSERT_PAIR_BRACKET
-        || (c == '"' || c == '\'') && parent instanceof JsonStringLiteral && codeInsightSettings.AUTOINSERT_PAIR_QUOTE) {
-      if (shouldAddCommaInParentContainer((JsonValue)parent)) {
-        editor.getDocument().insertString(parent.getTextRange().getEndOffset(), ",");
-      }
-    }
-  }
+            // the most ordinary case - literal property key or value
+            val grandParent = if (parent is JsonStringLiteral) parent.getParent() else null
+            return (grandParent is JsonProperty
+                    && (c != ':' || grandParent.nameElement === parent)
+                    && (c != ',' || grandParent.value === parent))
+        }
 
-  private static boolean shouldAddCommaInParentContainer(@NotNull JsonValue item) {
-    PsiElement parent = item.getParent();
-    if (parent instanceof JsonArray || parent instanceof JsonProperty) {
-      PsiElement nextElement = PsiTreeUtil.skipWhitespacesForward(parent instanceof JsonProperty ? parent : item);
-      if (nextElement instanceof PsiErrorElement) {
-        PsiElement forward = PsiTreeUtil.skipWhitespacesForward(nextElement);
-        return parent instanceof JsonProperty ? forward instanceof JsonProperty : forward instanceof JsonValue;
-      }
+        private fun addPropertyNameQuotesIfNeeded(
+            c: Char,
+            editor: Editor,
+            file: PsiFile
+        ) {
+            if (c != ':' || !JsonDialectUtil.isStandardJson(file) || !instance.AUTO_QUOTE_PROP_NAME) return
+            val offset = editor.caretModel.offset
+            val element = PsiTreeUtil.skipWhitespacesBackward(file.findElementAt(offset)) as? JsonProperty ?: return
+            val nameElement = element.nameElement
+            if (nameElement is JsonReferenceExpression) {
+                element.setName(nameElement.getText())
+                PsiDocumentManager.getInstance(file.project).doPostponedOperationsAndUnblockDocument(editor.document)
+            }
+        }
+
+        @JvmStatic
+        fun processPairedBracesComma(
+            c: Char,
+            editor: Editor,
+            file: PsiFile
+        ) {
+            if (!instance.COMMA_ON_MATCHING_BRACES) return
+            if (c != '[' && c != '{' && c != '"' && c != '\'') return
+            SmartEnterProcessor.commitDocument(editor)
+            val offset = editor.caretModel.offset
+            val element = file.findElementAt(offset) ?: return
+            val parent = element.parent
+            val codeInsightSettings = CodeInsightSettings.getInstance()
+            if ((c == '[' && parent is JsonArray
+                        || c == '{' && parent is JsonObject) && codeInsightSettings.AUTOINSERT_PAIR_BRACKET
+                || (c == '"' || c == '\'') && parent is JsonStringLiteral && codeInsightSettings.AUTOINSERT_PAIR_QUOTE
+            ) {
+                if (shouldAddCommaInParentContainer(parent as JsonValue)) {
+                    editor.document.insertString(parent.getTextRange().endOffset, ",")
+                }
+            }
+        }
+
+        private fun shouldAddCommaInParentContainer(item: JsonValue): Boolean {
+            val parent = item.parent
+            if (parent is JsonArray || parent is JsonProperty) {
+                val nextElement = PsiTreeUtil.skipWhitespacesForward(if (parent is JsonProperty) parent else item)
+                if (nextElement is PsiErrorElement) {
+                    val forward = PsiTreeUtil.skipWhitespacesForward(nextElement)
+                    return if (parent is JsonProperty) forward is JsonProperty else forward is JsonValue
+                }
+            }
+            return false
+        }
     }
-    return false;
-  }
 }

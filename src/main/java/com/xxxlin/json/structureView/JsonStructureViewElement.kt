@@ -1,77 +1,83 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.structureView;
+package com.xxxlin.json.structureView
 
-import com.intellij.ide.structureView.StructureViewTreeElement;
-import com.intellij.ide.util.treeView.smartTree.TreeElement;
-import com.intellij.navigation.ItemPresentation;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.containers.ContainerUtil;
-import com.xxxlin.json.psi.*;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
+import com.intellij.ide.structureView.StructureViewTreeElement
+import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.navigation.ItemPresentation
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.containers.ContainerUtil
+import com.xxxlin.json.psi.*
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonStructureViewElement implements StructureViewTreeElement {
-    private final com.xxxlin.json.psi.JsonElement myElement;
+class JsonStructureViewElement(element: JsonElement) : StructureViewTreeElement {
+    private val myElement: JsonElement
 
-    public JsonStructureViewElement(@NotNull com.xxxlin.json.psi.JsonElement element) {
-        assert PsiTreeUtil.instanceOf(element, com.xxxlin.json.psi.JsonFile.class, JsonProperty.class, JsonObject.class, JsonArray.class);
-        myElement = element;
+    init {
+        assert(
+            PsiTreeUtil.instanceOf(
+                element,
+                JsonFile::class.java,
+                JsonProperty::class.java,
+                JsonObject::class.java,
+                JsonArray::class.java
+            )
+        )
+        myElement = element
     }
 
-    @Override
-    public com.xxxlin.json.psi.JsonElement getValue() {
-        return myElement;
+    override fun getValue(): JsonElement {
+        return myElement
     }
 
-    @Override
-    public void navigate(boolean requestFocus) {
-        myElement.navigate(requestFocus);
+    override fun navigate(requestFocus: Boolean) {
+        myElement.navigate(requestFocus)
     }
 
-    @Override
-    public boolean canNavigate() {
-        return myElement.canNavigate();
+    override fun canNavigate(): Boolean {
+        return myElement.canNavigate()
     }
 
-    @Override
-    public boolean canNavigateToSource() {
-        return myElement.canNavigateToSource();
+    override fun canNavigateToSource(): Boolean {
+        return myElement.canNavigateToSource()
     }
 
-    @Override
-    public @NotNull ItemPresentation getPresentation() {
-        final ItemPresentation presentation = myElement.getPresentation();
-        assert presentation != null;
-        return presentation;
+    override fun getPresentation(): ItemPresentation {
+        val presentation = checkNotNull(myElement.presentation)
+        return presentation
     }
 
-    @Override
-    public TreeElement @NotNull [] getChildren() {
-        JsonElement value = null;
-        if (myElement instanceof com.xxxlin.json.psi.JsonFile) {
-            value = ((JsonFile) myElement).getTopLevelValue();
-        } else if (myElement instanceof JsonProperty) {
-            value = ((JsonProperty) myElement).getValue();
-        } else if (PsiTreeUtil.instanceOf(myElement, JsonObject.class, JsonArray.class)) {
-            value = myElement;
+    override fun getChildren(): Array<TreeElement> {
+        var value: JsonElement? = null
+        if (myElement is JsonFile) {
+            value = myElement.topLevelValue
+        } else if (myElement is JsonProperty) {
+            value = myElement.value
+        } else if (PsiTreeUtil.instanceOf(myElement, JsonObject::class.java, JsonArray::class.java)) {
+            value = myElement
         }
-        if (value instanceof JsonObject object) {
-            return ContainerUtil.map2Array(object.getPropertyList(), TreeElement.class, property -> new JsonStructureViewElement(property));
-        } else if (value instanceof JsonArray array) {
-            final List<TreeElement> childObjects = ContainerUtil.mapNotNull(array.getValueList(), value1 -> {
-                if (value1 instanceof JsonObject && !((JsonObject) value1).getPropertyList().isEmpty()) {
-                    return new JsonStructureViewElement(value1);
-                } else if (value1 instanceof JsonArray && PsiTreeUtil.findChildOfType(value1, JsonProperty.class) != null) {
-                    return new JsonStructureViewElement(value1);
+        if (value is JsonObject) {
+            return ContainerUtil.map2Array(
+                value.propertyList,
+                TreeElement::class.java
+            ) { property: JsonProperty -> JsonStructureViewElement(property) }
+        } else if (value is JsonArray) {
+            val childObjects: List<TreeElement> =
+                ContainerUtil.mapNotNull<JsonValue, TreeElement>(value.valueList) { value1: JsonValue? ->
+                    if (value1 is JsonObject && value1.propertyList.isNotEmpty()) {
+                        return@mapNotNull JsonStructureViewElement(value1)
+                    } else if (value1 is JsonArray && PsiTreeUtil.findChildOfType<JsonProperty?>(
+                            value1,
+                            JsonProperty::class.java
+                        ) != null
+                    ) {
+                        return@mapNotNull JsonStructureViewElement(value1)
+                    }
+                    null
                 }
-                return null;
-            });
-            return childObjects.toArray(TreeElement.EMPTY_ARRAY);
+            return childObjects.toTypedArray()
         }
-        return EMPTY_ARRAY;
+        return emptyArray()
     }
 }

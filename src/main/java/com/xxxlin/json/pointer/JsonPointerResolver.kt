@@ -1,56 +1,40 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.pointer;
+package com.xxxlin.json.pointer
 
-import com.xxxlin.json.psi.JsonArray;
-import com.xxxlin.json.psi.JsonObject;
-import com.xxxlin.json.psi.JsonValue;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.xxxlin.json.pointer.JsonPointerPosition.Companion.parsePointer
+import com.xxxlin.json.psi.JsonArray
+import com.xxxlin.json.psi.JsonObject
+import com.xxxlin.json.psi.JsonValue
 
-import java.util.List;
+class JsonPointerResolver(private val myRoot: JsonValue, private val myPointer: String) {
+    fun resolve(): JsonValue? {
+        var root: JsonValue? = myRoot
+        val steps = parsePointer(myPointer).getSteps()
+        for (step in steps) {
+            val name = step.name
+            if (name != null) {
+                if (root !is JsonObject) return null
+                val property = root.findProperty(name)
+                root = property?.value
+            } else {
+                val idx = step.idx
+                if (idx < 0) return null
 
-public final class JsonPointerResolver {
-  private final JsonValue myRoot;
-  private final String myPointer;
-
-  public JsonPointerResolver(@NotNull JsonValue root, @NotNull String pointer) {
-    myRoot = root;
-    myPointer = pointer;
-  }
-
-  public @Nullable JsonValue resolve() {
-    JsonValue root = myRoot;
-    final List<JsonPointerPosition.Step> steps = JsonPointerPosition.parsePointer(myPointer).getSteps();
-    for (JsonPointerPosition.Step step : steps) {
-      String name = step.getName();
-      if (name != null) {
-        if (!(root instanceof JsonObject)) return null;
-        JsonProperty property = ((JsonObject)root).findProperty(name);
-        root = property == null ? null : property.getValue();
-      }
-      else {
-        int idx = step.getIdx();
-        if (idx < 0) return null;
-
-        if (!(root instanceof JsonArray)) {
-          if (root instanceof JsonObject) {
-            JsonProperty property = ((JsonObject)root).findProperty(String.valueOf(idx));
-            if (property == null) {
-              return null;
+                if (root !is JsonArray) {
+                    if (root is JsonObject) {
+                        val property =
+                            root.findProperty(idx.toString()) ?: return null
+                        root = property.value
+                        continue
+                    } else {
+                        return null
+                    }
+                }
+                val list = root.valueList
+                if (idx >= list.size) return null
+                root = list[idx]
             }
-            root = property.getValue();
-            continue;
-          }
-          else {
-            return null;
-          }
         }
-        List<JsonValue> list = ((JsonArray)root).getValueList();
-        if (idx >= list.size()) return null;
-        root = list.get(idx);
-      }
+        return root
     }
-    return root;
-  }
 }

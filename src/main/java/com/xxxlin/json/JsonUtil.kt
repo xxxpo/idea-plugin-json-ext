@@ -1,87 +1,76 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json;
+package com.xxxlin.json
 
-import com.intellij.ide.scratch.RootType;
-import com.intellij.ide.scratch.ScratchFileService;
-import com.intellij.ide.scratch.ScratchUtil;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.fileTypes.LanguageFileType;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ObjectUtils;
-import com.xxxlin.json.psi.*;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
+import com.intellij.ide.scratch.ScratchFileService
+import com.intellij.ide.scratch.ScratchUtil
+import com.intellij.openapi.fileTypes.LanguageFileType
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
+import com.intellij.util.ObjectUtils
+import com.xxxlin.json.psi.*
+import org.jetbrains.annotations.Contract
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonUtil {
-    private JsonUtil() {
-        // empty
-    }
-
+object JsonUtil {
     /**
      * Clone of C# "as" operator.
      * Checks if expression has correct type and casts it if it has. Returns null otherwise.
      * It saves coder from "instanceof / cast" chains.
-     * <p>
-     * Copied from PyCharm's {@code PyUtil}.
+     *
+     *
+     * Copied from PyCharm's `PyUtil`.
      *
      * @param expression expression to check
      * @param cls        class to cast
      * @param <T>        class to cast
      * @return expression casted to appropriate type (if could be casted). Null otherwise.
-     */
-    @SuppressWarnings("unchecked")
-    public static @Nullable <T> T as(final @Nullable Object expression, final @NotNull Class<T> cls) {
+    </T> */
+    fun <T> `as`(expression: Any?, cls: Class<T>): T? {
         if (expression == null) {
-            return null;
+            return null
         }
-        if (cls.isAssignableFrom(expression.getClass())) {
-            return (T) expression;
+        if (cls.isAssignableFrom(expression.javaClass)) {
+            return expression as T
         }
-        return null;
+        return null
     }
 
-    public static @Nullable <T extends JsonElement> T getPropertyValueOfType(final @NotNull JsonObject object, final @NotNull String name,
-                                                                             final @NotNull Class<T> clazz) {
-        final JsonProperty property = object.findProperty(name);
-        if (property == null) return null;
-        return ObjectUtils.tryCast(property.getValue(), clazz);
+    fun <T : JsonElement?> getPropertyValueOfType(
+        `object`: JsonObject, name: String,
+        clazz: Class<T>
+    ): T? {
+        val property = `object`.findProperty(name) ?: return null
+        return ObjectUtils.tryCast(property.value, clazz)
     }
 
-    public static boolean isArrayElement(@NotNull PsiElement element) {
-        return element instanceof JsonValue && element.getParent() instanceof JsonArray;
+    fun isArrayElement(element: PsiElement): Boolean {
+        return element is JsonValue && element.getParent() is JsonArray
     }
 
-    public static int getArrayIndexOfItem(@NotNull PsiElement e) {
-        PsiElement parent = e.getParent();
-        if (!(parent instanceof JsonArray)) return -1;
-        List<JsonValue> elements = ((JsonArray) parent).getValueList();
-        for (int i = 0; i < elements.size(); i++) {
-            if (e == elements.get(i)) {
-                return i;
+    fun getArrayIndexOfItem(e: PsiElement): Int {
+        val parent = e.parent as? JsonArray ?: return -1
+        val elements = parent.valueList
+        for (i in elements.indices) {
+            if (e === elements[i]) {
+                return i
             }
         }
-        return -1;
+        return -1
     }
 
     @Contract("null -> null")
-    public static @Nullable JsonObject getTopLevelObject(@Nullable com.xxxlin.json.psi.JsonFile jsonFile) {
-        return jsonFile != null ? ObjectUtils.tryCast(jsonFile.getTopLevelValue(), JsonObject.class) : null;
+    fun getTopLevelObject(jsonFile: JsonFile?): JsonObject? {
+        return if (jsonFile != null) ObjectUtils.tryCast(jsonFile.topLevelValue, JsonObject::class.java) else null
     }
 
-    public static boolean isJsonFile(@NotNull VirtualFile file, @Nullable Project project) {
-        FileType type = file.getFileType();
-        if (type instanceof LanguageFileType && ((LanguageFileType) type).getLanguage() instanceof com.xxxlin.json.JsonLanguage)
-            return true;
-        if (project == null || !ScratchUtil.isScratch(file)) return false;
-        RootType rootType = ScratchFileService.findRootType(file);
-        return rootType != null && rootType.substituteLanguage(project, file) instanceof JsonLanguage;
+    fun isJsonFile(file: VirtualFile, project: Project?): Boolean {
+        val type = file.fileType
+        if (type is LanguageFileType && type.language is JsonLanguage) return true
+        if (project == null || !ScratchUtil.isScratch(file)) return false
+        val rootType = ScratchFileService.findRootType(file)
+        return rootType != null && rootType.substituteLanguage(project, file) is JsonLanguage
     }
 }

@@ -1,148 +1,145 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.editor;
+package com.xxxlin.json.editor
 
-import com.intellij.codeInsight.editorActions.EnterHandler;
-import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegateAdapter;
-import com.intellij.lang.Language;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
-import com.intellij.openapi.util.Ref;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiErrorElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.util.ObjectUtils;
-import com.xxxlin.json.JsonElementTypes;
-import com.xxxlin.json.JsonLanguage;
-import com.xxxlin.json.psi.*;
-import org.jetbrains.annotations.NotNull;
+import com.intellij.codeInsight.editorActions.EnterHandler
+import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegate
+import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegateAdapter
+import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.actionSystem.EditorActionHandler
+import com.intellij.openapi.util.Ref
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiErrorElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.impl.source.tree.LeafPsiElement
+import com.intellij.util.ObjectUtils
+import com.xxxlin.json.JsonElementTypes
+import com.xxxlin.json.JsonLanguage
+import com.xxxlin.json.editor.JsonEditorOptions.Companion.instance
+import com.xxxlin.json.psi.*
 
-public final class JsonEnterHandler extends EnterHandlerDelegateAdapter {
-    @Override
-    public Result preprocessEnter(@NotNull PsiFile file,
-                                  @NotNull Editor editor,
-                                  @NotNull Ref<Integer> caretOffsetRef,
-                                  @NotNull Ref<Integer> caretAdvanceRef,
-                                  @NotNull DataContext dataContext,
-                                  EditorActionHandler originalHandler) {
-        if (!JsonEditorOptions.getInstance().COMMA_ON_ENTER) {
-            return Result.Continue;
+class JsonEnterHandler : EnterHandlerDelegateAdapter() {
+    override fun preprocessEnter(
+        file: PsiFile,
+        editor: Editor,
+        caretOffsetRef: Ref<Int>,
+        caretAdvanceRef: Ref<Int>,
+        dataContext: DataContext,
+        originalHandler: EditorActionHandler?
+    ): EnterHandlerDelegate.Result {
+        if (!instance.COMMA_ON_ENTER) {
+            return EnterHandlerDelegate.Result.Continue
         }
 
-        Language language = EnterHandler.getLanguage(dataContext);
-        if (!(language instanceof JsonLanguage)) {
-            return Result.Continue;
+        val language = EnterHandler.getLanguage(dataContext) as? JsonLanguage
+            ?: return EnterHandlerDelegate.Result.Continue
+
+        val caretOffset = caretOffsetRef.get()
+        val psiAtOffset = file.findElementAt(caretOffset) ?: return EnterHandlerDelegate.Result.Continue
+
+        if (psiAtOffset is LeafPsiElement && handleComma(caretOffsetRef, psiAtOffset, editor)) {
+            return EnterHandlerDelegate.Result.Continue
         }
 
-        int caretOffset = caretOffsetRef.get().intValue();
-        PsiElement psiAtOffset = file.findElementAt(caretOffset);
-
-        if (psiAtOffset == null) {
-            return Result.Continue;
+        val literal = ObjectUtils.tryCast(psiAtOffset.parent, JsonValue::class.java)
+        if (literal != null && (literal !is JsonStringLiteral || !language.hasPermissiveStrings())) {
+            handleJsonValue(literal, editor, caretOffsetRef)
         }
 
-        if (psiAtOffset instanceof LeafPsiElement && handleComma(caretOffsetRef, psiAtOffset, editor)) {
-            return Result.Continue;
-        }
-
-        JsonValue literal = ObjectUtils.tryCast(psiAtOffset.getParent(), JsonValue.class);
-        if (literal != null && (!(literal instanceof JsonStringLiteral) || !((JsonLanguage) language).hasPermissiveStrings())) {
-            handleJsonValue(literal, editor, caretOffsetRef);
-        }
-
-        return Result.Continue;
+        return EnterHandlerDelegate.Result.Continue
     }
 
-    private static boolean handleComma(@NotNull Ref<Integer> caretOffsetRef, @NotNull PsiElement psiAtOffset, @NotNull Editor editor) {
-        PsiElement nextSibling = psiAtOffset;
-        boolean hasNewlineBefore = false;
-        while (nextSibling instanceof PsiWhiteSpace) {
-            hasNewlineBefore = nextSibling.getText().contains("\n");
-            nextSibling = nextSibling.getNextSibling();
-        }
-
-        LeafPsiElement leafPsiElement = ObjectUtils.tryCast(nextSibling, LeafPsiElement.class);
-        IElementType elementType = leafPsiElement == null ? null : leafPsiElement.getElementType();
-        if (elementType == JsonElementTypes.COMMA || elementType == JsonElementTypes.R_CURLY) {
-            PsiElement prevSibling = nextSibling.getPrevSibling();
-            while (prevSibling instanceof PsiWhiteSpace) {
-                prevSibling = prevSibling.getPrevSibling();
+    companion object {
+        private fun handleComma(caretOffsetRef: Ref<Int>, psiAtOffset: PsiElement, editor: Editor): Boolean {
+            var nextSibling = psiAtOffset
+            var hasNewlineBefore = false
+            while (nextSibling is PsiWhiteSpace) {
+                hasNewlineBefore = nextSibling.getText().contains("\n")
+                nextSibling = nextSibling.getNextSibling()
             }
 
-            if (prevSibling instanceof JsonProperty && ((JsonProperty) prevSibling).getValue() != null) {
-                int offset = elementType == JsonElementTypes.COMMA ? nextSibling.getTextRange().getEndOffset() : prevSibling.getTextRange().getEndOffset();
-                if (offset < editor.getDocument().getTextLength()) {
-                    if (elementType == JsonElementTypes.R_CURLY && hasNewlineBefore) {
-                        editor.getDocument().insertString(offset, ",");
-                        offset++;
+            val leafPsiElement = ObjectUtils.tryCast(nextSibling, LeafPsiElement::class.java)
+            val elementType = leafPsiElement?.elementType
+            if (elementType === JsonElementTypes.COMMA || elementType === JsonElementTypes.R_CURLY) {
+                var prevSibling = nextSibling.prevSibling
+                while (prevSibling is PsiWhiteSpace) {
+                    prevSibling = prevSibling.getPrevSibling()
+                }
+
+                if (prevSibling is JsonProperty && prevSibling.value != null) {
+                    var offset =
+                        if (elementType === JsonElementTypes.COMMA) nextSibling.textRange.endOffset else prevSibling.getTextRange().endOffset
+                    if (offset < editor.document.textLength) {
+                        if (elementType === JsonElementTypes.R_CURLY && hasNewlineBefore) {
+                            editor.document.insertString(offset, ",")
+                            offset++
+                        }
+                        caretOffsetRef.set(offset)
                     }
-                    caretOffsetRef.set(offset);
+                    return true
                 }
-                return true;
-            }
-            return false;
-        }
-
-        if (nextSibling instanceof JsonProperty) {
-            PsiElement prevSibling = nextSibling.getPrevSibling();
-            while (prevSibling instanceof PsiWhiteSpace || prevSibling instanceof PsiErrorElement) {
-                prevSibling = prevSibling.getPrevSibling();
+                return false
             }
 
-            if (prevSibling instanceof JsonProperty) {
-                int offset = prevSibling.getTextRange().getEndOffset();
-                if (offset < editor.getDocument().getTextLength()) {
-                    editor.getDocument().insertString(offset, ",");
-                    caretOffsetRef.set(offset + 1);
+            if (nextSibling is JsonProperty) {
+                var prevSibling = nextSibling.getPrevSibling()
+                while (prevSibling is PsiWhiteSpace || prevSibling is PsiErrorElement) {
+                    prevSibling = prevSibling.prevSibling
                 }
-                return true;
+
+                if (prevSibling is JsonProperty) {
+                    val offset = prevSibling.getTextRange().endOffset
+                    if (offset < editor.document.textLength) {
+                        editor.document.insertString(offset, ",")
+                        caretOffsetRef.set(offset + 1)
+                    }
+                    return true
+                }
             }
+
+            return false
         }
 
-        return false;
-    }
-
-    private static void handleJsonValue(@NotNull JsonValue literal, @NotNull Editor editor, @NotNull Ref<Integer> caretOffsetRef) {
-        PsiElement parent = literal.getParent();
-        if (!(parent instanceof JsonProperty) || ((JsonProperty) parent).getValue() != literal) {
-            return;
-        }
-
-        PsiElement nextSibling = parent.getNextSibling();
-        while (nextSibling instanceof PsiWhiteSpace || nextSibling instanceof PsiErrorElement) {
-            nextSibling = nextSibling.getNextSibling();
-        }
-
-        int offset = literal.getTextRange().getEndOffset();
-
-        if (literal instanceof JsonObject || literal instanceof JsonArray) {
-            if (nextSibling instanceof LeafPsiElement && ((LeafPsiElement) nextSibling).getElementType() == JsonElementTypes.COMMA
-                    || !(nextSibling instanceof JsonProperty)) {
-                return;
+        private fun handleJsonValue(literal: JsonValue, editor: Editor, caretOffsetRef: Ref<Int>) {
+            val parent = literal.parent
+            if (parent !is JsonProperty || parent.value !== literal) {
+                return
             }
-            Document document = editor.getDocument();
-            if (offset < document.getTextLength()) {
-                document.insertString(offset, ",");
-            }
-            return;
-        }
 
-        if (nextSibling instanceof LeafPsiElement && ((LeafPsiElement) nextSibling).getElementType() == JsonElementTypes.COMMA) {
-            offset = nextSibling.getTextRange().getEndOffset();
-        } else {
-            Document document = editor.getDocument();
-            if (offset < document.getTextLength()) {
-                document.insertString(offset, ",");
+            var nextSibling = parent.getNextSibling()
+            while (nextSibling is PsiWhiteSpace || nextSibling is PsiErrorElement) {
+                nextSibling = nextSibling.nextSibling
             }
-            offset++;
-        }
 
-        if (offset < editor.getDocument().getTextLength()) {
-            caretOffsetRef.set(offset);
+            var offset = literal.textRange.endOffset
+
+            if (literal is JsonObject || literal is JsonArray) {
+                if (nextSibling is LeafPsiElement && nextSibling.elementType === JsonElementTypes.COMMA
+                    || nextSibling !is JsonProperty
+                ) {
+                    return
+                }
+                val document = editor.document
+                if (offset < document.textLength) {
+                    document.insertString(offset, ",")
+                }
+                return
+            }
+
+            if (nextSibling is LeafPsiElement && nextSibling.elementType === JsonElementTypes.COMMA) {
+                offset = nextSibling.getTextRange().endOffset
+            } else {
+                val document = editor.document
+                if (offset < document.textLength) {
+                    document.insertString(offset, ",")
+                }
+                offset++
+            }
+
+            if (offset < editor.document.textLength) {
+                caretOffsetRef.set(offset)
+            }
         }
     }
 }

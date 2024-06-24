@@ -1,188 +1,161 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.formatter;
+package com.xxxlin.json.formatter
 
-import com.intellij.formatting.*;
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.TokenType;
-import com.intellij.psi.tree.TokenSet;
-import com.xxxlin.json.psi.JsonArray;
-import com.xxxlin.json.psi.JsonObject;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.xxxlin.json.JsonElementTypes.*;
-import static com.xxxlin.json.JsonTokenSets.JSON_CONTAINERS;
-import static com.xxxlin.json.formatter.JsonCodeStyleSettings.ALIGN_PROPERTY_ON_COLON;
-import static com.xxxlin.json.formatter.JsonCodeStyleSettings.ALIGN_PROPERTY_ON_VALUE;
+import com.intellij.formatting.*
+import com.intellij.lang.ASTNode
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.TokenType
+import com.intellij.psi.tree.TokenSet
+import com.xxxlin.json.JsonElementTypes
+import com.xxxlin.json.JsonTokenSets
+import com.xxxlin.json.psi.JsonArray
+import com.xxxlin.json.psi.JsonObject
+import com.xxxlin.json.psi.JsonProperty
+import com.xxxlin.json.psi.JsonPsiUtil
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonBlock implements ASTBlock {
-    private static final TokenSet JSON_OPEN_BRACES = TokenSet.create(L_BRACKET, L_CURLY);
-    private static final TokenSet JSON_CLOSE_BRACES = TokenSet.create(R_BRACKET, R_CURLY);
-    private static final TokenSet JSON_ALL_BRACES = TokenSet.orSet(JSON_OPEN_BRACES, JSON_CLOSE_BRACES);
+class JsonBlock(
+    private val myParent: JsonBlock?,
+    private val myNode: ASTNode,
+    private val myCustomSettings: JsonCodeStyleSettings,
+    private val myAlignment: Alignment?,
+    private val myIndent: Indent,
+    private val myWrap: Wrap?,
+    private val mySpacingBuilder: SpacingBuilder
+) : ASTBlock {
+    private val myPsiElement: PsiElement = myNode.psi
 
-    private final JsonBlock myParent;
-
-    private final ASTNode myNode;
-    private final PsiElement myPsiElement;
-    private final Alignment myAlignment;
-    private final Indent myIndent;
-    private final Wrap myWrap;
-    private final com.xxxlin.json.formatter.JsonCodeStyleSettings myCustomSettings;
-    private final SpacingBuilder mySpacingBuilder;
     // lazy initialized on first call to #getSubBlocks()
-    private List<Block> mySubBlocks = null;
+    private var mySubBlocks: MutableList<Block>? = null
 
-    private final Alignment myPropertyValueAlignment;
-    private final Wrap myChildWrap;
+    private val myPropertyValueAlignment: Alignment?
+    private var myChildWrap: Wrap? = null
 
-    public JsonBlock(@Nullable JsonBlock parent,
-                     @NotNull ASTNode node,
-                     @NotNull JsonCodeStyleSettings customSettings,
-                     @Nullable Alignment alignment,
-                     @NotNull Indent indent,
-                     @Nullable Wrap wrap,
-                     @NotNull SpacingBuilder spacingBuilder) {
-        myParent = parent;
-        myNode = node;
-        myPsiElement = node.getPsi();
-        myAlignment = alignment;
-        myIndent = indent;
-        myWrap = wrap;
-        mySpacingBuilder = spacingBuilder;
-        myCustomSettings = customSettings;
-
-        if (myPsiElement instanceof JsonObject) {
-            myChildWrap = Wrap.createWrap(myCustomSettings.OBJECT_WRAPPING, true);
-        } else if (myPsiElement instanceof JsonArray) {
-            myChildWrap = Wrap.createWrap(myCustomSettings.ARRAY_WRAPPING, true);
+    init {
+        myChildWrap = if (myPsiElement is JsonObject) {
+            Wrap.createWrap(myCustomSettings.OBJECT_WRAPPING, true)
+        } else if (myPsiElement is JsonArray) {
+            Wrap.createWrap(myCustomSettings.ARRAY_WRAPPING, true)
         } else {
-            myChildWrap = null;
+            null
         }
 
-        myPropertyValueAlignment = myPsiElement instanceof JsonObject ? Alignment.createAlignment(true) : null;
+        myPropertyValueAlignment = if (myPsiElement is JsonObject) Alignment.createAlignment(true) else null
     }
 
-    @Override
-    public ASTNode getNode() {
-        return myNode;
+    override fun getNode(): ASTNode {
+        return myNode
     }
 
-    @Override
-    public @NotNull TextRange getTextRange() {
-        return myNode.getTextRange();
+    override fun getTextRange(): TextRange {
+        return myNode.textRange
     }
 
-    @Override
-    public @NotNull List<Block> getSubBlocks() {
+    override fun getSubBlocks(): List<Block> {
         if (mySubBlocks == null) {
-            int propertyAlignment = myCustomSettings.PROPERTY_ALIGNMENT;
-            ASTNode[] children = myNode.getChildren(null);
-            mySubBlocks = new ArrayList<>(children.length);
-            for (ASTNode child : children) {
-                if (isWhitespaceOrEmpty(child)) continue;
-                mySubBlocks.add(makeSubBlock(child, propertyAlignment));
+            val propertyAlignment = myCustomSettings.PROPERTY_ALIGNMENT
+            val children = myNode.getChildren(null)
+            mySubBlocks = ArrayList(children.size)
+            for (child in children) {
+                if (isWhitespaceOrEmpty(child)) continue
+                mySubBlocks?.add(makeSubBlock(child, propertyAlignment))
             }
         }
-        return mySubBlocks;
+        return mySubBlocks!!
     }
 
-    private Block makeSubBlock(@NotNull ASTNode childNode, int propertyAlignment) {
-        Indent indent = Indent.getNoneIndent();
-        Alignment alignment = null;
-        Wrap wrap = null;
+    private fun makeSubBlock(childNode: ASTNode, propertyAlignment: Int): Block {
+        var indent = Indent.getNoneIndent()
+        var alignment: Alignment? = null
+        var wrap: Wrap? = null
 
-        if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, JSON_CONTAINERS)) {
-            if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(childNode, COMMA)) {
-                wrap = Wrap.createWrap(WrapType.NONE, true);
-            } else if (!com.xxxlin.json.psi.JsonPsiUtil.hasElementType(childNode, JSON_ALL_BRACES)) {
-                assert myChildWrap != null;
-                wrap = myChildWrap;
-                indent = Indent.getNormalIndent();
-            } else if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(childNode, JSON_OPEN_BRACES)) {
-                if (com.xxxlin.json.psi.JsonPsiUtil.isPropertyValue(myPsiElement) && propertyAlignment == ALIGN_PROPERTY_ON_VALUE) {
+        if (JsonPsiUtil.hasElementType(myNode, JsonTokenSets.JSON_CONTAINERS)) {
+            if (JsonPsiUtil.hasElementType(childNode, JsonElementTypes.COMMA)) {
+                wrap = Wrap.createWrap(WrapType.NONE, true)
+            } else if (!JsonPsiUtil.hasElementType(childNode, JSON_ALL_BRACES)) {
+                checkNotNull(myChildWrap)
+                wrap = myChildWrap
+                indent = Indent.getNormalIndent()
+            } else if (JsonPsiUtil.hasElementType(childNode, JSON_OPEN_BRACES)) {
+                if (JsonPsiUtil.isPropertyValue(myPsiElement) && propertyAlignment == JsonCodeStyleSettings.ALIGN_PROPERTY_ON_VALUE) {
                     // WEB-13587 Align compound values on opening brace/bracket, not the whole block
-                    assert myParent != null && myParent.myParent != null && myParent.myParent.myPropertyValueAlignment != null;
-                    alignment = myParent.myParent.myPropertyValueAlignment;
+                    assert(myParent?.myParent?.myPropertyValueAlignment != null)
+                    alignment = myParent!!.myParent!!.myPropertyValueAlignment
+                }
+            }
+        } else if (JsonPsiUtil.hasElementType(myNode, JsonElementTypes.PROPERTY)) {
+            assert(myParent?.myPropertyValueAlignment != null)
+            if (JsonPsiUtil.hasElementType(
+                    childNode,
+                    JsonElementTypes.COLON
+                ) && propertyAlignment == JsonCodeStyleSettings.ALIGN_PROPERTY_ON_COLON
+            ) {
+                alignment = myParent!!.myPropertyValueAlignment
+            } else if (JsonPsiUtil.isPropertyValue(childNode.psi) && propertyAlignment == JsonCodeStyleSettings.ALIGN_PROPERTY_ON_VALUE) {
+                if (!JsonPsiUtil.hasElementType(childNode, JsonTokenSets.JSON_CONTAINERS)) {
+                    alignment = myParent!!.myPropertyValueAlignment
                 }
             }
         }
-        // Handle properties alignment
-        else if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, PROPERTY)) {
-            assert myParent != null && myParent.myPropertyValueAlignment != null;
-            if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(childNode, COLON) && propertyAlignment == ALIGN_PROPERTY_ON_COLON) {
-                alignment = myParent.myPropertyValueAlignment;
-            } else if (com.xxxlin.json.psi.JsonPsiUtil.isPropertyValue(childNode.getPsi()) && propertyAlignment == ALIGN_PROPERTY_ON_VALUE) {
-                if (!com.xxxlin.json.psi.JsonPsiUtil.hasElementType(childNode, JSON_CONTAINERS)) {
-                    alignment = myParent.myPropertyValueAlignment;
-                }
-            }
-        }
-        return new JsonBlock(this, childNode, myCustomSettings, alignment, indent, wrap, mySpacingBuilder);
+        return JsonBlock(this, childNode, myCustomSettings, alignment, indent, wrap, mySpacingBuilder)
     }
 
-    @Override
-    public @Nullable Wrap getWrap() {
-        return myWrap;
+    override fun getWrap(): Wrap? {
+        return myWrap
     }
 
-    @Override
-    public @Nullable Indent getIndent() {
-        return myIndent;
+    override fun getIndent(): Indent {
+        return myIndent
     }
 
-    @Override
-    public @Nullable Alignment getAlignment() {
-        return myAlignment;
+    override fun getAlignment(): Alignment? {
+        return myAlignment
     }
 
-    @Override
-    public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
-        return mySpacingBuilder.getSpacing(this, child1, child2);
+    override fun getSpacing(child1: Block?, child2: Block): Spacing? {
+        return mySpacingBuilder.getSpacing(this, child1, child2)
     }
 
-    @Override
-    public @NotNull ChildAttributes getChildAttributes(int newChildIndex) {
-        if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, JSON_CONTAINERS)) {
+    override fun getChildAttributes(newChildIndex: Int): ChildAttributes {
+        if (JsonPsiUtil.hasElementType(myNode, JsonTokenSets.JSON_CONTAINERS)) {
             // WEB-13675: For some reason including alignment in child attributes causes
             // indents to consist solely of spaces when both USE_TABS and SMART_TAB
             // options are enabled.
-            return new ChildAttributes(Indent.getNormalIndent(), null);
-        } else if (myNode.getPsi() instanceof PsiFile) {
-            return new ChildAttributes(Indent.getNoneIndent(), null);
+            return ChildAttributes(Indent.getNormalIndent(), null)
+        } else if (myNode.psi is PsiFile) {
+            return ChildAttributes(Indent.getNoneIndent(), null)
         }
         // Will use continuation indent for cases like { "foo"<caret>  }
-        return new ChildAttributes(null, null);
+        return ChildAttributes(null, null)
     }
 
-    @Override
-    public boolean isIncomplete() {
-        final ASTNode lastChildNode = myNode.getLastChildNode();
-        if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, OBJECT)) {
-            return lastChildNode != null && lastChildNode.getElementType() != R_CURLY;
-        } else if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, ARRAY)) {
-            return lastChildNode != null && lastChildNode.getElementType() != R_BRACKET;
-        } else if (com.xxxlin.json.psi.JsonPsiUtil.hasElementType(myNode, PROPERTY)) {
-            return ((JsonProperty) myPsiElement).getValue() == null;
+    override fun isIncomplete(): Boolean {
+        val lastChildNode = myNode.lastChildNode
+        if (JsonPsiUtil.hasElementType(myNode, JsonElementTypes.OBJECT)) {
+            return lastChildNode != null && lastChildNode.elementType !== JsonElementTypes.R_CURLY
+        } else if (JsonPsiUtil.hasElementType(myNode, JsonElementTypes.ARRAY)) {
+            return lastChildNode != null && lastChildNode.elementType !== JsonElementTypes.R_BRACKET
+        } else if (JsonPsiUtil.hasElementType(myNode, JsonElementTypes.PROPERTY)) {
+            return (myPsiElement as JsonProperty).value == null
         }
-        return false;
+        return false
     }
 
-    @Override
-    public boolean isLeaf() {
-        return myNode.getFirstChildNode() == null;
+    override fun isLeaf(): Boolean {
+        return myNode.firstChildNode == null
     }
 
-    private static boolean isWhitespaceOrEmpty(ASTNode node) {
-        return node.getElementType() == TokenType.WHITE_SPACE || node.getTextLength() == 0;
+    companion object {
+        private val JSON_OPEN_BRACES = TokenSet.create(JsonElementTypes.L_BRACKET, JsonElementTypes.L_CURLY)
+        private val JSON_CLOSE_BRACES = TokenSet.create(JsonElementTypes.R_BRACKET, JsonElementTypes.R_CURLY)
+        private val JSON_ALL_BRACES = TokenSet.orSet(JSON_OPEN_BRACES, JSON_CLOSE_BRACES)
+
+        private fun isWhitespaceOrEmpty(node: ASTNode): Boolean {
+            return node.elementType === TokenType.WHITE_SPACE || node.textLength == 0
+        }
     }
 }

@@ -1,61 +1,58 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.formatter;
+package com.xxxlin.json.formatter
 
-import com.intellij.application.options.CodeStyleAbstractConfigurable;
-import com.intellij.application.options.CodeStyleAbstractPanel;
-import com.intellij.application.options.TabbedLanguageCodeStylePanel;
-import com.intellij.lang.Language;
-import com.intellij.psi.codeStyle.CodeStyleConfigurable;
-import com.intellij.psi.codeStyle.CodeStyleSettings;
-import com.intellij.psi.codeStyle.CodeStyleSettingsProvider;
-import com.intellij.psi.codeStyle.CustomCodeStyleSettings;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.JsonLanguage;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.application.options.CodeStyleAbstractConfigurable
+import com.intellij.application.options.CodeStyleAbstractPanel
+import com.intellij.application.options.TabbedLanguageCodeStylePanel
+import com.intellij.lang.Language
+import com.intellij.psi.codeStyle.CodeStyleConfigurable
+import com.intellij.psi.codeStyle.CodeStyleSettings
+import com.intellij.psi.codeStyle.CodeStyleSettingsProvider
+import com.intellij.psi.codeStyle.CustomCodeStyleSettings
+import com.xxxlin.json.JsonBundle
+import com.xxxlin.json.JsonLanguage
 
 /**
  * @author Mikhail Golubev
  */
-public class JsonCodeStyleSettingsProvider extends CodeStyleSettingsProvider {
-    @Override
-    public @NotNull CodeStyleConfigurable createConfigurable(@NotNull CodeStyleSettings settings,
-                                                             @NotNull CodeStyleSettings originalSettings) {
-        return new CodeStyleAbstractConfigurable(settings, originalSettings, JsonBundle.message("settings.display.name.json")) {
-            @Override
-            protected @NotNull CodeStyleAbstractPanel createPanel(@NotNull CodeStyleSettings settings) {
-                final Language language = JsonLanguage.INSTANCE;
-                final CodeStyleSettings currentSettings = getCurrentSettings();
-                return new TabbedLanguageCodeStylePanel(language, currentSettings, settings) {
-                    @Override
-                    protected void initTabs(CodeStyleSettings settings) {
-                        addIndentOptionsTab(settings);
-                        addSpacesTab(settings);
-                        addBlankLinesTab(settings);
-                        addWrappingAndBracesTab(settings);
+class JsonCodeStyleSettingsProvider : CodeStyleSettingsProvider() {
+    override fun createConfigurable(
+        settings: CodeStyleSettings,
+        originalSettings: CodeStyleSettings
+    ): CodeStyleConfigurable {
+        return object : CodeStyleAbstractConfigurable(
+            settings,
+            originalSettings,
+            JsonBundle.message("settings.display.name.json")
+        ) {
+            override fun createPanel(settings: CodeStyleSettings): CodeStyleAbstractPanel {
+                val language: Language = JsonLanguage.INSTANCE
+                val currentSettings = currentSettings
+                return object : TabbedLanguageCodeStylePanel(language, currentSettings, settings) {
+                    override fun initTabs(settings: CodeStyleSettings) {
+                        addIndentOptionsTab(settings)
+                        addSpacesTab(settings)
+                        addBlankLinesTab(settings)
+                        addWrappingAndBracesTab(settings)
                     }
-                };
+                }
             }
 
-            @Override
-            public @NotNull String getHelpTopic() {
-                return "reference.settingsdialog.codestyle.json";
+            override fun getHelpTopic(): String {
+                return "reference.settingsdialog.codestyle.json"
             }
-        };
+        }
     }
 
-    @Override
-    public @Nullable String getConfigurableDisplayName() {
-        return JsonLanguage.INSTANCE.getDisplayName();
+    override fun getConfigurableDisplayName(): String? {
+        return JsonLanguage.INSTANCE.displayName
     }
 
-    @Override
-    public @Nullable CustomCodeStyleSettings createCustomSettings(@NotNull CodeStyleSettings settings) {
-        return new JsonCodeStyleSettings(settings);
+    override fun createCustomSettings(settings: CodeStyleSettings): CustomCodeStyleSettings? {
+        return JsonCodeStyleSettings(settings)
     }
 
-    @Override
-    public @Nullable Language getLanguage() {
-        return JsonLanguage.INSTANCE;
+    override fun getLanguage(): Language? {
+        return JsonLanguage.INSTANCE
     }
 }

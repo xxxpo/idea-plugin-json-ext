@@ -1,38 +1,40 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.structureView;
+package com.xxxlin.json.structureView
 
-import com.intellij.ide.structureView.StructureViewModel;
-import com.intellij.ide.structureView.StructureViewModelBase;
-import com.intellij.ide.structureView.StructureViewTreeElement;
-import com.intellij.ide.util.treeView.smartTree.Sorter;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiFile;
-import com.xxxlin.json.psi.JsonArray;
-import com.xxxlin.json.psi.JsonFile;
-import com.xxxlin.json.psi.JsonObject;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.ide.structureView.StructureViewModel.ElementInfoProvider
+import com.intellij.ide.structureView.StructureViewModelBase
+import com.intellij.ide.structureView.StructureViewTreeElement
+import com.intellij.ide.util.treeView.smartTree.Sorter
+import com.intellij.openapi.editor.Editor
+import com.intellij.psi.PsiFile
+import com.xxxlin.json.psi.JsonArray
+import com.xxxlin.json.psi.JsonFile
+import com.xxxlin.json.psi.JsonObject
+import com.xxxlin.json.psi.JsonProperty
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonStructureViewModel extends StructureViewModelBase implements StructureViewModel.ElementInfoProvider {
-
-    public JsonStructureViewModel(@NotNull PsiFile psiFile, @Nullable Editor editor) {
-        super(psiFile, editor, new JsonStructureViewElement((JsonFile) psiFile));
-        withSuitableClasses(JsonFile.class, JsonProperty.class, JsonObject.class, JsonArray.class);
-        withSorters(Sorter.ALPHA_SORTER);
+class JsonStructureViewModel(psiFile: PsiFile, editor: Editor?) : StructureViewModelBase(
+    psiFile, editor, JsonStructureViewElement(
+        (psiFile as JsonFile)
+    )
+), ElementInfoProvider {
+    init {
+        withSuitableClasses(
+            JsonFile::class.java,
+            JsonProperty::class.java,
+            JsonObject::class.java,
+            JsonArray::class.java
+        )
+        withSorters(Sorter.ALPHA_SORTER)
     }
 
-    @Override
-    public boolean isAlwaysShowsPlus(StructureViewTreeElement element) {
-        return false;
+    override fun isAlwaysShowsPlus(element: StructureViewTreeElement): Boolean {
+        return false
     }
 
-    @Override
-    public boolean isAlwaysLeaf(StructureViewTreeElement element) {
-        return false;
+    override fun isAlwaysLeaf(element: StructureViewTreeElement): Boolean {
+        return false
     }
-
 }

@@ -1,23 +1,17 @@
-package com.xxxlin.json.psi;
+package com.xxxlin.json.psi
 
-import com.intellij.psi.PsiFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
+import com.intellij.psi.PsiFile
 
 /**
  * @author Mikhail Golubev
  */
-public interface JsonFile extends JsonElement, PsiFile {
-  /**
-   * Returns {@link JsonArray} or {@link JsonObject} value according to JSON standard.
-   *
-   * @return top-level JSON element if any or {@code null} otherwise
-   */
-  @Nullable
-  JsonValue getTopLevelValue();
+interface JsonFile : JsonElement, PsiFile {
+    /**
+     * Returns [JsonArray] or [JsonObject] value according to JSON standard.
+     *
+     * @return top-level JSON element if any or `null` otherwise
+     */
+    val topLevelValue: JsonValue?
 
-  @NotNull
-  List<JsonValue> getAllTopLevelValues();
+    val allTopLevelValues: List<JsonValue?>
 }

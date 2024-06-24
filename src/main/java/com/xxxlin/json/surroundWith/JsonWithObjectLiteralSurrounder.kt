@@ -1,84 +1,85 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.surroundWith;
+package com.xxxlin.json.surroundWith
 
-import com.xxxlin.json.psi.*;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.IncorrectOperationException;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.psi.JsonPsiUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiElement
+import com.intellij.util.IncorrectOperationException
+import com.xxxlin.json.JsonBundle.message
+import com.xxxlin.json.psi.*
 
 /**
  * This surrounder ported from JavaScript allows to wrap single JSON value or several consecutive JSON properties
  * in object literal.
- * <p/>
+ *
+ *
  * Examples:
- * <ol>
- * <li>{@code [42]} converts to {@code [{"property": 42}]}</li>
- * <li><pre>
+ *
+ *  1. `[42]` converts to `[{"property": 42}]`
+ *  1. <pre>
  * {
- *    "foo": 42,
- *    "bar": false
+ * "foo": 42,
+ * "bar": false
  * }
- * </pre> converts to <pre>
+</pre> *  converts to <pre>
  * {
- *    "property": {
- *      "foo": 42,
- *      "bar": false
- *    }
+ * "property": {
+ * "foo": 42,
+ * "bar": false
  * }
- * </pre></li>
- * </ol>
+ * }
+</pre> *
+ *
  *
  * @author Mikhail Golubev
  */
-public final class JsonWithObjectLiteralSurrounder extends JsonSurrounderBase {
-    @Override
-    public String getTemplateDescription() {
-        return JsonBundle.message("surround.with.object.literal.desc");
+class JsonWithObjectLiteralSurrounder : JsonSurrounderBase() {
+    override fun getTemplateDescription(): String {
+        return message("surround.with.object.literal.desc")
     }
 
-    @Override
-    public boolean isApplicable(PsiElement @NotNull [] elements) {
-        return !JsonPsiUtil.isPropertyKey(elements[0]) && (elements[0] instanceof JsonProperty || elements.length == 1);
+    override fun isApplicable(elements: Array<PsiElement>): Boolean {
+        return !JsonPsiUtil.isPropertyKey(elements[0]) && (elements[0] is JsonProperty || elements.size == 1)
     }
 
-    @Override
-    public @Nullable TextRange surroundElements(@NotNull Project project,
-                                                @NotNull Editor editor,
-                                                PsiElement @NotNull [] elements) throws IncorrectOperationException {
-
+    @Throws(IncorrectOperationException::class)
+    override fun surroundElements(
+        project: Project,
+        editor: Editor,
+        elements: Array<PsiElement>
+    ): TextRange? {
         if (!isApplicable(elements)) {
-            return null;
+            return null
         }
 
-        final com.xxxlin.json.psi.JsonElementGenerator generator = new com.xxxlin.json.psi.JsonElementGenerator(project);
+        val generator = JsonElementGenerator(project)
 
-        final PsiElement firstElement = elements[0];
-        final JsonElement newNameElement;
-        if (firstElement instanceof JsonValue) {
-            assert elements.length == 1 : "Only single JSON value can be wrapped in object literal";
-            JsonObject replacement = generator.createValue(createReplacementText(firstElement.getText()));
-            replacement = (JsonObject) firstElement.replace(replacement);
-            newNameElement = replacement.getPropertyList().get(0).getNameElement();
+        val firstElement = elements[0]
+        val newNameElement: JsonElement
+        if (firstElement is JsonValue) {
+            assert(elements.size == 1) { "Only single JSON value can be wrapped in object literal" }
+            var replacement = generator.createValue<JsonObject>(createReplacementText(firstElement.getText()))
+            replacement = firstElement.replace(replacement) as JsonObject
+            newNameElement = replacement.propertyList[0].nameElement
         } else {
-            assert firstElement instanceof JsonProperty;
-            final String propertiesText = getTextAndRemoveMisc(firstElement, elements[elements.length - 1]);
-            final JsonObject tempJsonObject = generator.createValue(createReplacementText("{\n" + propertiesText) + "\n}");
-            JsonProperty replacement = tempJsonObject.getPropertyList().get(0);
-            replacement = (JsonProperty) firstElement.replace(replacement);
-            newNameElement = replacement.getNameElement();
+            assert(firstElement is JsonProperty)
+            val propertiesText = getTextAndRemoveMisc(firstElement, elements[elements.size - 1])
+            val tempJsonObject = generator.createValue<JsonObject>(
+                """
+    ${createReplacementText("{\n$propertiesText")}
+    }
+    """.trimIndent()
+            )
+            var replacement = tempJsonObject.propertyList[0]
+            replacement = firstElement.replace(replacement) as JsonProperty
+            newNameElement = replacement.nameElement
         }
-        final TextRange rangeWithQuotes = newNameElement.getTextRange();
-        return new TextRange(rangeWithQuotes.getStartOffset() + 1, rangeWithQuotes.getEndOffset() - 1);
+        val rangeWithQuotes = newNameElement.getTextRange()
+        return TextRange(rangeWithQuotes.startOffset + 1, rangeWithQuotes.endOffset - 1)
     }
 
-    @Override
-    protected @NotNull String createReplacementText(@NotNull String textInRange) {
-        return "{\n\"property\": " + textInRange + "\n}";
+    override fun createReplacementText(textInRange: String): String {
+        return "{\n\"property\": $textInRange\n}"
     }
 }

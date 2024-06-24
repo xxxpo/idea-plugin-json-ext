@@ -53,6 +53,8 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.xxxlin.json.editor.JsonEditorOptions"/>
+
         <!-- 定义语言 -->
         <fileType
                 name="JSON File"
@@ -92,9 +94,9 @@
                 implementationClass="com.xxxlin.json.findUsages.JsonFindUsagesProvider"/>
 
         <!-- 结构视图 -->
-        <lang.psiStructureViewFactory
-                language="json-ext"
-                implementationClass="com.xxxlin.json.structureView.JsonStructureViewBuilderFactory"/>
+<!--        <lang.psiStructureViewFactory-->
+<!--                language="json-ext"-->
+<!--                implementationClass="com.xxxlin.json.structureView.JsonStructureViewBuilderFactory"/>-->
 
         <!-- 面包屑 -->
         <breadcrumbsInfoProvider
@@ -111,9 +113,9 @@
                 level="WARNING"
                 implementationClass="com.xxxlin.json.codeinsight.JsonDuplicatePropertyKeysInspection"/>
 
-        <lang.foldingBuilder
-                language="json-ext"
-                implementationClass="com.xxxlin.json.editor.folding.JsonFoldingBuilder"/>
+<!--        <lang.foldingBuilder-->
+<!--                language="json-ext"-->
+<!--                implementationClass="com.xxxlin.json.editor.folding.JsonFoldingBuilder"/>-->
 
         <!-- 代码上下移动逻辑 -->
         <statementUpDownMover

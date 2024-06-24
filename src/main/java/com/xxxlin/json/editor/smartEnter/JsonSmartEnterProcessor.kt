@@ -1,129 +1,133 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.editor.smartEnter;
+package com.xxxlin.json.editor.smartEnter
 
-import com.intellij.lang.SmartEnterProcessorWithFixers;
-import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.IncorrectOperationException;
-import com.xxxlin.json.JsonDialectUtil;
-import com.xxxlin.json.psi.*;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
-
-import static com.xxxlin.json.JsonElementTypes.COLON;
-import static com.xxxlin.json.JsonElementTypes.COMMA;
+import com.intellij.lang.SmartEnterProcessorWithFixers
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.editor.Editor
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.tree.IElementType
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.IncorrectOperationException
+import com.xxxlin.json.JsonDialectUtil
+import com.xxxlin.json.JsonElementTypes
+import com.xxxlin.json.psi.*
 
 /**
  * This processor allows
- * <ul>
- * <li>Insert colon after key inside object property</li>
- * <li>Insert comma after array element or object property</li>
- * </ul>
+ *
+ *  * Insert colon after key inside object property
+ *  * Insert comma after array element or object property
+ *
  *
  * @author Mikhail Golubev
  */
-public final class JsonSmartEnterProcessor extends SmartEnterProcessorWithFixers {
-    public static final Logger LOG = Logger.getInstance(JsonSmartEnterProcessor.class);
+class JsonSmartEnterProcessor : SmartEnterProcessorWithFixers() {
+    private var myShouldAddNewline = false
 
-    private boolean myShouldAddNewline = false;
-
-    public JsonSmartEnterProcessor() {
-        addFixers(new JsonObjectPropertyFixer(), new JsonArrayElementFixer());
-        addEnterProcessors(new JsonEnterProcessor());
+    init {
+        addFixers(JsonObjectPropertyFixer(), JsonArrayElementFixer())
+        addEnterProcessors(JsonEnterProcessor())
     }
 
-    @Override
-    protected void collectAdditionalElements(@NotNull PsiElement element, @NotNull List<PsiElement> result) {
+    override fun collectAdditionalElements(element: PsiElement, result: MutableList<PsiElement>) {
         // include all parents as well
-        PsiElement parent = element.getParent();
-        while (parent != null && !(parent instanceof JsonFile)) {
-            result.add(parent);
-            parent = parent.getParent();
+        var parent = element.parent
+        while (parent != null && parent !is JsonFile) {
+            result.add(parent)
+            parent = parent.parent
         }
     }
 
-    private static boolean terminatedOnCurrentLine(@NotNull Editor editor, @NotNull PsiElement element) {
-        final Document document = editor.getDocument();
-        final int caretOffset = editor.getCaretModel().getCurrentCaret().getOffset();
-        final int elementEndOffset = element.getTextRange().getEndOffset();
-        if (document.getLineNumber(elementEndOffset) != document.getLineNumber(caretOffset)) {
-            return false;
-        }
-        // Skip empty PsiError elements if comma is missing
-        PsiElement nextLeaf = PsiTreeUtil.nextLeaf(element, true);
-        return nextLeaf == null || (nextLeaf instanceof PsiWhiteSpace && nextLeaf.getText().contains("\n"));
-    }
-
-    private static boolean isFollowedByTerminal(@NotNull PsiElement element, IElementType type) {
-        final PsiElement nextLeaf = PsiTreeUtil.nextVisibleLeaf(element);
-        return nextLeaf != null && nextLeaf.getNode().getElementType() == type;
-    }
-
-    private static final class JsonArrayElementFixer extends Fixer<JsonSmartEnterProcessor> {
-        @Override
-        public void apply(@NotNull Editor editor, @NotNull JsonSmartEnterProcessor processor, @NotNull PsiElement element)
-                throws IncorrectOperationException {
-            if (element instanceof JsonValue arrayElement && element.getParent() instanceof JsonArray) {
-                if (terminatedOnCurrentLine(editor, arrayElement) && !isFollowedByTerminal(element, COMMA)) {
-                    editor.getDocument().insertString(arrayElement.getTextRange().getEndOffset(), ",");
-                    processor.myShouldAddNewline = true;
+    private class JsonArrayElementFixer : Fixer<JsonSmartEnterProcessor>() {
+        @Throws(IncorrectOperationException::class)
+        override fun apply(editor: Editor, processor: JsonSmartEnterProcessor, element: PsiElement) {
+            if (element is JsonValue && element.getParent() is JsonArray) {
+                if (terminatedOnCurrentLine(editor, element) && !isFollowedByTerminal(
+                        element,
+                        JsonElementTypes.COMMA
+                    )
+                ) {
+                    editor.document.insertString(element.getTextRange().endOffset, ",")
+                    processor.myShouldAddNewline = true
                 }
             }
         }
     }
 
-    private static final class JsonObjectPropertyFixer extends Fixer<JsonSmartEnterProcessor> {
-        @Override
-        public void apply(@NotNull Editor editor, @NotNull JsonSmartEnterProcessor processor, @NotNull PsiElement element)
-                throws IncorrectOperationException {
-            if (element instanceof JsonProperty) {
-                final JsonValue propertyValue = ((JsonProperty) element).getValue();
+    private class JsonObjectPropertyFixer : Fixer<JsonSmartEnterProcessor>() {
+        @Throws(IncorrectOperationException::class)
+        override fun apply(editor: Editor, processor: JsonSmartEnterProcessor, element: PsiElement) {
+            if (element is JsonProperty) {
+                val propertyValue = element.value
                 if (propertyValue != null) {
-                    if (terminatedOnCurrentLine(editor, propertyValue) && !isFollowedByTerminal(propertyValue, COMMA)) {
-                        editor.getDocument().insertString(propertyValue.getTextRange().getEndOffset(), ",");
-                        processor.myShouldAddNewline = true;
+                    if (terminatedOnCurrentLine(editor, propertyValue) && !isFollowedByTerminal(
+                            propertyValue,
+                            JsonElementTypes.COMMA
+                        )
+                    ) {
+                        editor.document.insertString(propertyValue.textRange.endOffset, ",")
+                        processor.myShouldAddNewline = true
                     }
                 } else {
-                    final JsonValue propertyKey = ((JsonProperty) element).getNameElement();
-                    TextRange keyRange = propertyKey.getTextRange();
-                    final int keyStartOffset = keyRange.getStartOffset();
-                    int keyEndOffset = keyRange.getEndOffset();
+                    val propertyKey = element.nameElement
+                    val keyRange = propertyKey.textRange
+                    val keyStartOffset = keyRange.startOffset
+                    var keyEndOffset = keyRange.endOffset
                     //processor.myFirstErrorOffset = keyEndOffset;
-                    if (terminatedOnCurrentLine(editor, propertyKey) && !isFollowedByTerminal(propertyKey, COLON)) {
-                        boolean shouldQuoteKey = propertyKey instanceof JsonReferenceExpression && JsonDialectUtil.isStandardJson(propertyKey);
+                    if (terminatedOnCurrentLine(editor, propertyKey) && !isFollowedByTerminal(
+                            propertyKey,
+                            JsonElementTypes.COLON
+                        )
+                    ) {
+                        val shouldQuoteKey =
+                            propertyKey is JsonReferenceExpression && JsonDialectUtil.isStandardJson(propertyKey)
                         if (shouldQuoteKey) {
-                            editor.getDocument().insertString(keyStartOffset, "\"");
-                            keyEndOffset++;
-                            editor.getDocument().insertString(keyEndOffset, "\"");
-                            keyEndOffset++;
+                            editor.document.insertString(keyStartOffset, "\"")
+                            keyEndOffset++
+                            editor.document.insertString(keyEndOffset, "\"")
+                            keyEndOffset++
                         }
-                        processor.myFirstErrorOffset = keyEndOffset + 2;
-                        editor.getDocument().insertString(keyEndOffset, ": ");
+                        processor.myFirstErrorOffset = keyEndOffset + 2
+                        editor.document.insertString(keyEndOffset, ": ")
                     }
                 }
             }
         }
     }
 
-    private final class JsonEnterProcessor extends FixEnterProcessor {
-        @Override
-        public boolean doEnter(PsiElement atCaret, PsiFile file, @NotNull Editor editor, boolean modified) {
+    private inner class JsonEnterProcessor : FixEnterProcessor() {
+        override fun doEnter(atCaret: PsiElement, file: PsiFile, editor: Editor, modified: Boolean): Boolean {
             if (myShouldAddNewline) {
                 try {
-                    plainEnter(editor);
+                    plainEnter(editor)
                 } finally {
-                    myShouldAddNewline = false;
+                    myShouldAddNewline = false
                 }
             }
-            return true;
+            return true
+        }
+    }
+
+    companion object {
+        val LOG: Logger = Logger.getInstance(JsonSmartEnterProcessor::class.java)
+
+        private fun terminatedOnCurrentLine(editor: Editor, element: PsiElement): Boolean {
+            val document = editor.document
+            val caretOffset = editor.caretModel.currentCaret.offset
+            val elementEndOffset = element.textRange.endOffset
+            if (document.getLineNumber(elementEndOffset) != document.getLineNumber(caretOffset)) {
+                return false
+            }
+            // Skip empty PsiError elements if comma is missing
+            val nextLeaf = PsiTreeUtil.nextLeaf(element, true)
+            return nextLeaf == null || (nextLeaf is PsiWhiteSpace && nextLeaf.getText().contains("\n"))
+        }
+
+        private fun isFollowedByTerminal(element: PsiElement, type: IElementType): Boolean {
+            val nextLeaf = PsiTreeUtil.nextVisibleLeaf(element)
+            return nextLeaf != null && nextLeaf.node.elementType === type
         }
     }
 }

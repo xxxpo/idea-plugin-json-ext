@@ -1,35 +1,44 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.psi;
+package com.xxxlin.json.psi
 
-import com.xxxlin.json.psi.JsonStringLiteral;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.AbstractElementManipulator;
-import com.intellij.util.IncorrectOperationException;
-import org.jetbrains.annotations.NotNull;
+import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.psi.AbstractElementManipulator
+import com.intellij.util.IncorrectOperationException
 
-public final class JsonStringLiteralManipulator extends AbstractElementManipulator<JsonStringLiteral> {
+class JsonStringLiteralManipulator : AbstractElementManipulator<JsonStringLiteral>() {
+    @Throws(IncorrectOperationException::class)
+    override fun handleContentChange(
+        element: JsonStringLiteral,
+        range: TextRange,
+        newContent: String
+    ): JsonStringLiteral {
+        assert(TextRange(0, element.textLength).contains(range))
 
-  @Override
-  public JsonStringLiteral handleContentChange(@NotNull JsonStringLiteral element, @NotNull TextRange range, String newContent)
-    throws IncorrectOperationException {
-    assert new TextRange(0, element.getTextLength()).contains(range);
+        val originalContent = element.text
+        val withoutQuotes = getRangeInElement(element)
+        val generator = JsonElementGenerator(element.project)
+        val replacement =
+            StringUtil.unescapeStringCharacters(
+                originalContent.substring(
+                    withoutQuotes.startOffset,
+                    range.startOffset
+                )
+            ) +
+                    newContent +
+                    StringUtil.unescapeStringCharacters(
+                        originalContent.substring(
+                            range.endOffset,
+                            withoutQuotes.endOffset
+                        )
+                    )
+        return element.replace(generator.createStringLiteral(replacement)) as JsonStringLiteral
+    }
 
-    final String originalContent = element.getText();
-    final TextRange withoutQuotes = getRangeInElement(element);
-    final com.xxxlin.json.psi.JsonElementGenerator generator = new JsonElementGenerator(element.getProject());
-    final String replacement =
-      StringUtil.unescapeStringCharacters(originalContent.substring(withoutQuotes.getStartOffset(), range.getStartOffset())) +
-      newContent +
-      StringUtil.unescapeStringCharacters(originalContent.substring(range.getEndOffset(), withoutQuotes.getEndOffset()));
-    return (JsonStringLiteral)element.replace(generator.createStringLiteral(replacement));
-  }
-
-  @Override
-  public @NotNull TextRange getRangeInElement(@NotNull JsonStringLiteral element) {
-    final String content = element.getText();
-    final int startOffset = content.startsWith("'") || content.startsWith("\"") ? 1 : 0;
-    final int endOffset = content.length() > 1 && (content.endsWith("'") || content.endsWith("\"")) ? -1 : 0;
-    return new TextRange(startOffset, content.length() + endOffset);
-  }
+    override fun getRangeInElement(element: JsonStringLiteral): TextRange {
+        val content = element.text
+        val startOffset = if (content.startsWith("'") || content.startsWith("\"")) 1 else 0
+        val endOffset = if (content.length > 1 && (content.endsWith("'") || content.endsWith("\""))) -1 else 0
+        return TextRange(startOffset, content.length + endOffset)
+    }
 }

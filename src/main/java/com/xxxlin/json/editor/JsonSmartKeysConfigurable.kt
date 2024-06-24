@@ -1,7 +1,6 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package com.xxxlin.json.editor
 
-import com.xxxlin.json.editor.JsonEditorOptions
 import com.xxxlin.json.JsonBundle
 import com.intellij.openapi.options.BeanConfigurable
 import com.intellij.openapi.options.SearchableConfigurable
@@ -9,7 +8,7 @@ import com.intellij.openapi.options.SearchableConfigurable
 class JsonSmartKeysConfigurable : BeanConfigurable<Unit>(Unit), SearchableConfigurable {
 
     init {
-        JsonEditorOptions.getInstance()?.let { settings ->
+        JsonEditorOptions.instance.let { settings ->
             checkBox(JsonBundle.message("settings.smart.keys.insert.missing.comma.on.enter"), settings::COMMA_ON_ENTER)
             checkBox(
                 JsonBundle.message("settings.smart.keys.insert.missing.comma.after.matching.braces.and.quotes"),

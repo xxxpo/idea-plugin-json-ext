@@ -1,75 +1,72 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.breadcrumbs;
+package com.xxxlin.json.breadcrumbs
 
-import com.intellij.lang.Language;
-import com.intellij.openapi.ide.CopyPasteManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.ui.breadcrumbs.BreadcrumbsProvider;
-import com.jetbrains.jsonSchema.impl.JsonSchemaDocumentationProvider;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.JsonLanguage;
-import com.xxxlin.json.JsonUtil;
-import com.xxxlin.json.navigation.JsonQualifiedNameKind;
-import com.xxxlin.json.navigation.JsonQualifiedNameProvider;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
-import java.awt.datatransfer.StringSelection;
-import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.List;
+import com.intellij.lang.Language
+import com.intellij.openapi.ide.CopyPasteManager
+import com.intellij.psi.PsiElement
+import com.intellij.ui.breadcrumbs.BreadcrumbsProvider
+import com.jetbrains.jsonSchema.impl.JsonSchemaDocumentationProvider
+import com.xxxlin.json.JsonBundle
+import com.xxxlin.json.JsonLanguage
+import com.xxxlin.json.JsonUtil
+import com.xxxlin.json.navigation.JsonQualifiedNameKind
+import com.xxxlin.json.navigation.JsonQualifiedNameProvider.Companion.generateQualifiedName
+import com.xxxlin.json.psi.JsonProperty
+import java.awt.datatransfer.StringSelection
+import java.awt.event.ActionEvent
+import javax.swing.AbstractAction
+import javax.swing.Action
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonBreadcrumbsProvider implements BreadcrumbsProvider {
-    private static final Language[] LANGUAGES = new Language[]{JsonLanguage.INSTANCE};
+class JsonBreadcrumbsProvider : BreadcrumbsProvider {
 
-    @Override
-    public Language[] getLanguages() {
-        return LANGUAGES;
+    private val languages = arrayOf<Language>(
+        JsonLanguage.INSTANCE
+    )
+
+    override fun getLanguages(): Array<Language> {
+        return languages
     }
 
-    @Override
-    public boolean acceptElement(@NotNull PsiElement e) {
-        return e instanceof JsonProperty || com.xxxlin.json.JsonUtil.isArrayElement(e);
+    override fun acceptElement(e: PsiElement): Boolean {
+        return e is JsonProperty || JsonUtil.isArrayElement(e)
     }
 
-    @Override
-    public @NotNull String getElementInfo(@NotNull PsiElement e) {
-        if (e instanceof JsonProperty) {
-            return ((JsonProperty) e).getName();
-        } else if (com.xxxlin.json.JsonUtil.isArrayElement(e)) {
-            int i = JsonUtil.getArrayIndexOfItem(e);
-            if (i != -1) return String.valueOf(i);
+    override fun getElementInfo(e: PsiElement): String {
+        if (e is JsonProperty) {
+            return e.name
+        } else if (JsonUtil.isArrayElement(e)) {
+            val i = JsonUtil.getArrayIndexOfItem(e)
+            if (i != -1) {
+                return i.toString()
+            }
         }
-        throw new AssertionError("Breadcrumbs can be extracted only from JsonProperty elements or JsonArray child items");
+        throw AssertionError("Breadcrumbs can be extracted only from JsonProperty elements or JsonArray child items")
     }
 
-    @Override
-    public @Nullable String getElementTooltip(@NotNull PsiElement e) {
-        return JsonSchemaDocumentationProvider.findSchemaAndGenerateDoc(e, null, true, null);
+    override fun getElementTooltip(e: PsiElement): String? {
+        return JsonSchemaDocumentationProvider.findSchemaAndGenerateDoc(e, null, true, null)
     }
 
-    @Override
-    public @NotNull List<? extends Action> getContextActions(@NotNull PsiElement element) {
-        JsonQualifiedNameKind[] values = JsonQualifiedNameKind.values();
-        List<Action> actions = new ArrayList<>(values.length);
-        for (JsonQualifiedNameKind kind : values) {
-            actions.add(new AbstractAction(JsonBundle.message("json.copy.to.clipboard", kind.toString())) {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    CopyPasteManager.getInstance().setContents(new StringSelection(JsonQualifiedNameProvider.generateQualifiedName(element, kind)));
+    override fun getContextActions(element: PsiElement): List<Action> {
+        val values: Array<JsonQualifiedNameKind> =
+            JsonQualifiedNameKind.entries.toTypedArray<JsonQualifiedNameKind>()
+
+        val actions: MutableList<Action> = ArrayList(values.size)
+        for (kind in values) {
+            actions.add(object : AbstractAction(JsonBundle.message("json.copy.to.clipboard", kind.toString())) {
+                override fun actionPerformed(e: ActionEvent) {
+                    CopyPasteManager.getInstance().setContents(StringSelection(generateQualifiedName(element, kind)))
                 }
-            });
+            })
         }
-        return actions;
+        return actions
     }
 
-    @Override
-    public boolean isShownByDefault() {
-        return false;
+    override fun isShownByDefault(): Boolean {
+        return false
     }
+
 }

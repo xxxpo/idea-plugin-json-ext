@@ -8,10 +8,10 @@ import com.xxxlin.json.psi.JsonArray
 import org.jetbrains.annotations.Nls
 
 internal fun getCollectionPsiPresentationText(array: JsonArray): @Nls String {
-  val childrenCount = array.valueList.size
-  return getCollectionPsiPresentationText(childrenCount)
+    val childrenCount = array.valueList.size
+    return getCollectionPsiPresentationText(childrenCount)
 }
 
 fun getCollectionPsiPresentationText(childrenCount: Int): @Nls String {
-  return JsonBundle.message("folding.collapsed.array.text", childrenCount)
+    return JsonBundle.message("folding.collapsed.array.text", childrenCount)
 }

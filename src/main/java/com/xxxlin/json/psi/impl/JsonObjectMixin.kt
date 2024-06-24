@@ -1,41 +1,32 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.psi.impl;
+package com.xxxlin.json.psi.impl
 
-import com.intellij.lang.ASTNode;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.xxxlin.json.psi.JsonObject;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.HashMap;
-import java.util.Map;
+import com.intellij.lang.ASTNode
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
+import com.xxxlin.json.psi.JsonObject
+import com.xxxlin.json.psi.JsonProperty
 
 /**
  * @author Mikhail Golubev
  */
-public abstract class JsonObjectMixin extends JsonContainerImpl implements JsonObject {
-    private final CachedValueProvider<Map<String, JsonProperty>> myPropertyCache =
-            () -> {
-                final Map<String, JsonProperty> cache = new HashMap<>();
-                for (JsonProperty property : getPropertyList()) {
-                    final String propertyName = property.getName();
-                    // Preserve the old behavior - return the first value in findProperty()
-                    if (!cache.containsKey(propertyName)) {
-                        cache.put(propertyName, property);
-                    }
-                }
-                // Cached value is invalidated every time file containing this object is modified
-                return CachedValueProvider.Result.createSingleDependency(cache, this);
-            };
-
-    public JsonObjectMixin(@NotNull ASTNode node) {
-        super(node);
+abstract class JsonObjectMixin(node: ASTNode) : JsonContainerImpl(node), JsonObject {
+    private val myPropertyCache = CachedValueProvider {
+        val cache: MutableMap<String, JsonProperty> = HashMap()
+        for (property in propertyList) {
+            val propertyName = property.name
+            // Preserve the old behavior - return the first value in findProperty()
+            if (!cache.containsKey(propertyName)) {
+                cache[propertyName] = property
+            }
+        }
+        CachedValueProvider.Result.createSingleDependency<Map<String, JsonProperty>>(cache, this)
     }
 
-    @Override
-    public @Nullable JsonProperty findProperty(@NotNull String name) {
-        return CachedValuesManager.getCachedValue(this, myPropertyCache).get(name);
+    override fun findProperty(name: String): JsonProperty? {
+        return CachedValuesManager.getCachedValue(
+            this,
+            myPropertyCache
+        )[name]
     }
 }

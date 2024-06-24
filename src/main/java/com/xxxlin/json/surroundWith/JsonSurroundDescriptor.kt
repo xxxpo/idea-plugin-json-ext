@@ -1,82 +1,82 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.surroundWith;
+package com.xxxlin.json.surroundWith
 
-import com.xxxlin.json.JsonElementTypes;
-import com.xxxlin.json.psi.JsonProperty;
-import com.xxxlin.json.psi.JsonValue;
-import com.intellij.lang.surroundWith.SurroundDescriptor;
-import com.intellij.lang.surroundWith.Surrounder;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.SmartList;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.List;
+import com.intellij.lang.surroundWith.SurroundDescriptor
+import com.intellij.lang.surroundWith.Surrounder
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.util.SmartList
+import com.xxxlin.json.JsonElementTypes
+import com.xxxlin.json.psi.JsonProperty
+import com.xxxlin.json.psi.JsonValue
 
 /**
  * @author Mikhail Golubev
  */
-public final class JsonSurroundDescriptor implements SurroundDescriptor {
-  private static final Surrounder[] ourSurrounders = new Surrounder[]{
-    new JsonWithObjectLiteralSurrounder(),
-    new JsonWithArrayLiteralSurrounder(),
-    new JsonWithQuotesSurrounder()
-  };
+class JsonSurroundDescriptor : SurroundDescriptor {
+    override fun getElementsToSurround(file: PsiFile, startOffset: Int, endOffset: Int): Array<PsiElement> {
+        var startOffset = startOffset
+        var endOffset = endOffset
+        var firstElement = file.findElementAt(startOffset)
+        var lastElement = file.findElementAt(endOffset - 1)
 
-  @Override
-  public PsiElement @NotNull [] getElementsToSurround(PsiFile file, int startOffset, int endOffset) {
-    PsiElement firstElement = file.findElementAt(startOffset);
-    PsiElement lastElement = file.findElementAt(endOffset - 1);
+        // Extend selection beyond possible delimiters
+        while (firstElement != null &&
+            (firstElement is PsiWhiteSpace || firstElement.node.elementType === JsonElementTypes.COMMA)
+        ) {
+            firstElement = firstElement.nextSibling
+        }
+        while (lastElement != null &&
+            (lastElement is PsiWhiteSpace || lastElement.node.elementType === JsonElementTypes.COMMA)
+        ) {
+            lastElement = lastElement.prevSibling
+        }
+        if (firstElement != null) {
+            startOffset = firstElement.textRange.startOffset
+        }
+        if (lastElement != null) {
+            endOffset = lastElement.textRange.endOffset
+        }
 
-    // Extend selection beyond possible delimiters
-    while (firstElement != null &&
-           (firstElement instanceof PsiWhiteSpace || firstElement.getNode().getElementType() == JsonElementTypes.COMMA)) {
-      firstElement = firstElement.getNextSibling();
-    }
-    while (lastElement != null &&
-           (lastElement instanceof PsiWhiteSpace || lastElement.getNode().getElementType() == JsonElementTypes.COMMA)) {
-      lastElement = lastElement.getPrevSibling();
-    }
-    if (firstElement != null) {
-      startOffset = firstElement.getTextRange().getStartOffset();
-    }
-    if (lastElement != null) {
-      endOffset = lastElement.getTextRange().getEndOffset();
+        val property = PsiTreeUtil.findElementOfClassAtRange(file, startOffset, endOffset, JsonProperty::class.java)
+        if (property != null) {
+            return collectElements(endOffset, property, JsonProperty::class.java)
+        }
+
+        val value = PsiTreeUtil.findElementOfClassAtRange(file, startOffset, endOffset, JsonValue::class.java)
+        if (value != null) {
+            return collectElements(endOffset, value, JsonValue::class.java)
+        }
+        return PsiElement.EMPTY_ARRAY
     }
 
-    final JsonProperty property = PsiTreeUtil.findElementOfClassAtRange(file, startOffset, endOffset, JsonProperty.class);
-    if (property != null) {
-      return collectElements(endOffset, property, JsonProperty.class);
+    override fun getSurrounders(): Array<Surrounder> {
+        return ourSurrounders
     }
 
-    final JsonValue value = PsiTreeUtil.findElementOfClassAtRange(file, startOffset, endOffset, JsonValue.class);
-    if (value != null) {
-      return collectElements(endOffset, value, JsonValue.class);
+    override fun isExclusive(): Boolean {
+        return false
     }
-    return PsiElement.EMPTY_ARRAY;
-  }
 
-  private static <T extends PsiElement> PsiElement @NotNull [] collectElements(int endOffset, @NotNull T property, @NotNull Class<T> kind) {
-    final List<T> properties = new SmartList<>(property);
-    PsiElement nextSibling = property.getNextSibling();
-    while (nextSibling != null && nextSibling.getTextRange().getEndOffset() <= endOffset) {
-      if (kind.isInstance(nextSibling)) {
-        properties.add(kind.cast(nextSibling));
-      }
-      nextSibling = nextSibling.getNextSibling();
+    companion object {
+        private val ourSurrounders = arrayOf<Surrounder>(
+            JsonWithObjectLiteralSurrounder(),
+            JsonWithArrayLiteralSurrounder(),
+            JsonWithQuotesSurrounder()
+        )
+
+        private fun <T : PsiElement> collectElements(endOffset: Int, property: T, kind: Class<T>): Array<PsiElement> {
+            val properties: MutableList<T> = SmartList(property)
+            var nextSibling = property.nextSibling
+            while (nextSibling != null && nextSibling.textRange.endOffset <= endOffset) {
+                if (kind.isInstance(nextSibling)) {
+                    properties.add(kind.cast(nextSibling))
+                }
+                nextSibling = nextSibling.nextSibling
+            }
+            return properties.toTypedArray()
+        }
     }
-    return properties.toArray(PsiElement.EMPTY_ARRAY);
-  }
-
-  @Override
-  public Surrounder @NotNull [] getSurrounders() {
-    return ourSurrounders;
-  }
-
-  @Override
-  public boolean isExclusive() {
-    return false;
-  }
 }

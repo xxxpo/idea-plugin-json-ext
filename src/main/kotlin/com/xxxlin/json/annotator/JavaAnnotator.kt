@@ -32,7 +32,7 @@ class JavaAnnotator : Annotator {
         if (jsonProperty != null) {
             val keyRange = TextRange(element.textRange.startOffset + 1, element.textRange.endOffset - 1)
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(keyRange)
-                .textAttributes(JsonSyntaxHighlighterFactory.JSON_PROPERTY_KEY)
+                .textAttributes(JsonSyntaxHighlighterFactory.JSON_NUMBER)
                 .create()
         }
     }

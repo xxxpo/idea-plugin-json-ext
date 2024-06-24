@@ -1,157 +1,142 @@
 // Copyright 2000-2022 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.codeinsight;
+package com.xxxlin.json.codeinsight
 
-import com.intellij.codeInsight.intention.preview.IntentionPreviewInfo;
-import com.intellij.codeInspection.LocalInspectionTool;
-import com.intellij.codeInspection.LocalQuickFixAndIntentionActionOnPsiElement;
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.codeInspection.ProblemsHolder;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ScrollType;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.ui.popup.PopupStep;
-import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
-import com.intellij.psi.*;
-import com.intellij.ui.IconManager;
-import com.intellij.ui.PlatformIcons;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.containers.MultiMap;
-import com.jetbrains.jsonSchema.ide.JsonSchemaService;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.psi.JsonElementVisitor;
-import com.xxxlin.json.psi.JsonObject;
-import com.xxxlin.json.psi.JsonProperty;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.codeInspection.LocalInspectionTool
+import com.intellij.codeInspection.LocalQuickFixAndIntentionActionOnPsiElement
+import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.editor.ScrollType
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.PopupStep
+import com.intellij.openapi.ui.popup.util.BaseListPopupStep
+import com.intellij.psi.*
+import com.intellij.util.PlatformIcons
+import com.intellij.util.containers.ContainerUtil
+import com.intellij.util.containers.MultiMap
+import com.jetbrains.jsonSchema.ide.JsonSchemaService
+import com.xxxlin.json.JsonBundle
+import com.xxxlin.json.psi.JsonElementVisitor
+import com.xxxlin.json.psi.JsonObject
+import org.jetbrains.annotations.Nls
+import java.util.stream.Collectors
+import javax.swing.Icon
 
-import javax.swing.*;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-public class JsonDuplicatePropertyKeysInspection extends LocalInspectionTool {
-    private static final String COMMENT = "$comment";
-
-    @Override
-    public @NotNull PsiElementVisitor buildVisitor(final @NotNull ProblemsHolder holder, boolean isOnTheFly) {
-        boolean isSchemaFile = JsonSchemaService.isSchemaFile(holder.getFile());
-        return new JsonElementVisitor() {
-            @Override
-            public void visitObject(@NotNull JsonObject o) {
-                final MultiMap<String, PsiElement> keys = new MultiMap<>();
-                for (JsonProperty property : o.getPropertyList()) {
-                    keys.putValue(property.getName(), property.getNameElement());
+class JsonDuplicatePropertyKeysInspection : LocalInspectionTool() {
+    override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
+        val isSchemaFile = JsonSchemaService.isSchemaFile(holder.file)
+        return object : JsonElementVisitor() {
+            override fun visitObject(o: JsonObject) {
+                val keys = MultiMap<String, PsiElement>()
+                for (property in o.propertyList) {
+                    keys.putValue(property.name, property.nameElement)
                 }
-                visitKeys(keys, isSchemaFile, holder);
-            }
-        };
-    }
-
-    protected static void visitKeys(MultiMap<String, PsiElement> keys, boolean isSchemaFile, @NotNull ProblemsHolder holder) {
-        for (Map.Entry<String, Collection<PsiElement>> entry : keys.entrySet()) {
-            final Collection<PsiElement> sameNamedKeys = entry.getValue();
-            final String entryKey = entry.getKey();
-            if (sameNamedKeys.size() > 1 && (!isSchemaFile || !COMMENT.equalsIgnoreCase(entryKey))) {
-                for (PsiElement element : sameNamedKeys) {
-                    holder.registerProblem(element, com.xxxlin.json.JsonBundle.message("inspection.duplicate.keys.msg.duplicate.keys", entryKey),
-                            getNavigateToDuplicatesFix(sameNamedKeys, element, entryKey));
-                }
+                visitKeys(keys, isSchemaFile, holder)
             }
         }
     }
 
-    protected static @NotNull NavigateToDuplicatesFix getNavigateToDuplicatesFix(Collection<PsiElement> sameNamedKeys,
-                                                                                 PsiElement element,
-                                                                                 String entryKey) {
-        return new NavigateToDuplicatesFix(sameNamedKeys, element, entryKey);
-    }
+    class NavigateToDuplicatesFix internal constructor(
+        sameNamedKeys: Collection<PsiElement>,
+        element: PsiElement,
+        private val myEntryKey: String
+    ) : LocalQuickFixAndIntentionActionOnPsiElement(element) {
+        private val mySameNamedKeys: Collection<SmartPsiElementPointer<PsiElement>> =
+            ContainerUtil.map(sameNamedKeys) { k: PsiElement -> SmartPointerManager.createPointer(k) }
 
-    private static final class NavigateToDuplicatesFix extends LocalQuickFixAndIntentionActionOnPsiElement {
-        private final @NotNull Collection<SmartPsiElementPointer<PsiElement>> mySameNamedKeys;
-        private final @NotNull String myEntryKey;
-
-        private NavigateToDuplicatesFix(@NotNull Collection<PsiElement> sameNamedKeys, @NotNull PsiElement element, @NotNull String entryKey) {
-            super(element);
-            mySameNamedKeys = ContainerUtil.map(sameNamedKeys, k -> SmartPointerManager.createPointer(k));
-            myEntryKey = entryKey;
+        override fun getText(): String {
+            return JsonBundle.message("navigate.to.duplicates")
         }
 
-        @Override
-        public @NotNull String getText() {
-            return com.xxxlin.json.JsonBundle.message("navigate.to.duplicates");
+        override fun getFamilyName(): @Nls(capitalization = Nls.Capitalization.Sentence) String {
+            return text
         }
 
-        @Override
-        public @Nls(capitalization = Nls.Capitalization.Sentence) @NotNull String getFamilyName() {
-            return getText();
-        }
+        override fun invoke(
+            project: Project,
+            file: PsiFile,
+            editor: Editor?,
+            startElement: PsiElement,
+            endElement: PsiElement
+        ) {
+            if (editor == null) return
 
-        @Override
-        public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull ProblemDescriptor previewDescriptor) {
-            return IntentionPreviewInfo.EMPTY;
-        }
-
-        @Override
-        public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
-            return IntentionPreviewInfo.EMPTY;
-        }
-
-        @Override
-        public void invoke(@NotNull Project project,
-                           @NotNull PsiFile file,
-                           @Nullable Editor editor,
-                           @NotNull PsiElement startElement,
-                           @NotNull PsiElement endElement) {
-            if (editor == null) return;
-
-            if (mySameNamedKeys.size() == 2) {
-                final Iterator<SmartPsiElementPointer<PsiElement>> iterator = mySameNamedKeys.iterator();
-                final PsiElement next = iterator.next().getElement();
-                PsiElement toNavigate = next != startElement ? next : iterator.next().getElement();
-                if (toNavigate == null) return;
-                navigateTo(editor, toNavigate);
+            if (mySameNamedKeys.size == 2) {
+                val iterator = mySameNamedKeys.iterator()
+                val next = iterator.next().element
+                val toNavigate = if (next !== startElement) next else iterator.next().element
+                if (toNavigate == null) return
+                navigateTo(editor, toNavigate)
             } else {
-                final List<PsiElement> allElements =
-                        mySameNamedKeys.stream().map(k -> k.getElement()).filter(k -> k != startElement).collect(Collectors.toList());
+                val allElements =
+                    mySameNamedKeys.stream()
+                        .map { k: SmartPsiElementPointer<PsiElement> -> k.element }
+                        .filter { k: PsiElement? -> k !== startElement }
+                        .collect(Collectors.toList())
                 JBPopupFactory.getInstance().createListPopup(
-                        new BaseListPopupStep<>(com.xxxlin.json.JsonBundle.message("navigate.to.duplicates.header", myEntryKey), allElements) {
-                            @Override
-                            public @NotNull Icon getIconFor(PsiElement aValue) {
-                                return IconManager.getInstance().getPlatformIcon(PlatformIcons.Property);
-                            }
+                    object : BaseListPopupStep<PsiElement>(
+                        JsonBundle.message("navigate.to.duplicates.header", myEntryKey),
+                        allElements
+                    ) {
+                        override fun getIconFor(aValue: PsiElement): Icon {
+                            return PlatformIcons.PROPERTY_ICON
+                        }
 
-                            @Override
-                            public @NotNull String getTextFor(PsiElement value) {
-                                return JsonBundle
-                                        .message("navigate.to.duplicates.desc", myEntryKey, editor.getDocument().getLineNumber(value.getTextOffset()));
-                            }
+                        override fun getTextFor(value: PsiElement): String {
+                            return JsonBundle
+                                .message(
+                                    "navigate.to.duplicates.desc",
+                                    myEntryKey,
+                                    editor.document.getLineNumber(value.textOffset)
+                                )
+                        }
 
-                            @Override
-                            public int getDefaultOptionIndex() {
-                                return 0;
-                            }
+                        override fun getDefaultOptionIndex(): Int {
+                            return 0
+                        }
 
-                            @Override
-                            public @Nullable PopupStep<?> onChosen(PsiElement selectedValue, boolean finalChoice) {
-                                navigateTo(editor, selectedValue);
-                                return PopupStep.FINAL_CHOICE;
-                            }
+                        override fun onChosen(selectedValue: PsiElement, finalChoice: Boolean): PopupStep<*>? {
+                            navigateTo(editor, selectedValue)
+                            return FINAL_CHOICE
+                        }
 
-                            @Override
-                            public boolean isSpeedSearchEnabled() {
-                                return true;
-                            }
-                        }).showInBestPositionFor(editor);
+                        override fun isSpeedSearchEnabled(): Boolean {
+                            return true
+                        }
+                    }).showInBestPositionFor(editor)
             }
         }
 
-        private static void navigateTo(@NotNull Editor editor, @NotNull PsiElement toNavigate) {
-            editor.getCaretModel().moveToOffset(toNavigate.getTextOffset());
-            editor.getScrollingModel().scrollToCaret(ScrollType.MAKE_VISIBLE);
+        companion object {
+            private fun navigateTo(editor: Editor, toNavigate: PsiElement) {
+                editor.caretModel.moveToOffset(toNavigate.textOffset)
+                editor.scrollingModel.scrollToCaret(ScrollType.MAKE_VISIBLE)
+            }
+        }
+    }
+
+    companion object {
+        private const val COMMENT = "\$comment"
+
+        protected fun visitKeys(keys: MultiMap<String, PsiElement>, isSchemaFile: Boolean, holder: ProblemsHolder) {
+            for ((entryKey, sameNamedKeys) in keys.entrySet()) {
+                if (sameNamedKeys.size > 1 && (!isSchemaFile || !COMMENT.equals(entryKey, ignoreCase = true))) {
+                    for (element in sameNamedKeys) {
+                        holder.registerProblem(
+                            element, JsonBundle.message("inspection.duplicate.keys.msg.duplicate.keys", entryKey),
+                            getNavigateToDuplicatesFix(sameNamedKeys, element, entryKey)
+                        )
+                    }
+                }
+            }
+        }
+
+        protected fun getNavigateToDuplicatesFix(
+            sameNamedKeys: Collection<PsiElement>,
+            element: PsiElement,
+            entryKey: String
+        ): NavigateToDuplicatesFix {
+            return NavigateToDuplicatesFix(sameNamedKeys, element, entryKey)
         }
     }
 }

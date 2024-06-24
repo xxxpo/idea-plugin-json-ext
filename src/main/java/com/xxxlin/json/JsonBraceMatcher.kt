@@ -1,33 +1,30 @@
-package com.xxxlin.json;
+package com.xxxlin.json
 
-import com.intellij.lang.BracePair;
-import com.intellij.lang.PairedBraceMatcher;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.tree.IElementType;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.lang.BracePair
+import com.intellij.lang.PairedBraceMatcher
+import com.intellij.psi.PsiFile
+import com.intellij.psi.tree.IElementType
 
 /**
  * @author Mikhail Golubev
  */
-public class JsonBraceMatcher implements PairedBraceMatcher {
-    private static final BracePair[] PAIRS = {
-            new BracePair(JsonElementTypes.L_BRACKET, JsonElementTypes.R_BRACKET, true),
-            new BracePair(JsonElementTypes.L_CURLY, JsonElementTypes.R_CURLY, true)
-    };
-
-    @Override
-    public BracePair @NotNull [] getPairs() {
-        return PAIRS;
+class JsonBraceMatcher : PairedBraceMatcher {
+    override fun getPairs(): Array<BracePair> {
+        return PAIRS
     }
 
-    @Override
-    public boolean isPairedBracesAllowedBeforeType(@NotNull IElementType lbraceType, @Nullable IElementType contextType) {
-        return true;
+    override fun isPairedBracesAllowedBeforeType(lbraceType: IElementType, contextType: IElementType?): Boolean {
+        return true
     }
 
-    @Override
-    public int getCodeConstructStart(PsiFile file, int openingBraceOffset) {
-        return openingBraceOffset;
+    override fun getCodeConstructStart(file: PsiFile, openingBraceOffset: Int): Int {
+        return openingBraceOffset
+    }
+
+    companion object {
+        private val PAIRS = arrayOf(
+            BracePair(JsonElementTypes.L_BRACKET, JsonElementTypes.R_BRACKET, true),
+            BracePair(JsonElementTypes.L_CURLY, JsonElementTypes.R_CURLY, true)
+        )
     }
 }

@@ -1,69 +1,79 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.codeinsight;
+package com.xxxlin.json.codeinsight
 
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.xxxlin.json.JsonBundle;
-import com.xxxlin.json.JsonDialectUtil;
-import com.xxxlin.json.psi.JsonStringLiteral;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.openapi.util.Pair
+import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiElement
+import com.xxxlin.json.JsonBundle
+import com.xxxlin.json.JsonDialectUtil
+import com.xxxlin.json.psi.JsonStringLiteral
+import java.util.regex.Pattern
 
-import java.util.regex.Pattern;
-
-public class StandardJsonLiteralChecker implements JsonExtLiteralChecker {
-    public static final Pattern VALID_ESCAPE = Pattern.compile("\\\\([\"\\\\/bfnrt]|u[0-9a-fA-F]{4})");
-    private static final Pattern VALID_NUMBER_LITERAL = Pattern.compile("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?");
-    public static final String INF = "Infinity";
-    public static final String MINUS_INF = "-Infinity";
-    public static final String NAN = "NaN";
-
-    @Override
-    public @Nullable String getErrorForNumericLiteral(String literalText) {
-        if (!INF.equals(literalText) &&
-                !MINUS_INF.equals(literalText) &&
-                !NAN.equals(literalText) &&
-                !VALID_NUMBER_LITERAL.matcher(literalText).matches()) {
-            return JsonBundle.message("syntax.error.illegal.floating.point.literal");
+class StandardJsonLiteralChecker : JsonExtLiteralChecker {
+    override fun getErrorForNumericLiteral(literalText: String): String? {
+        if (INF != literalText &&
+            MINUS_INF != literalText &&
+            NAN != literalText &&
+            !VALID_NUMBER_LITERAL.matcher(literalText).matches()
+        ) {
+            return JsonBundle.message("syntax.error.illegal.floating.point.literal")
         }
-        return null;
+        return null
     }
 
-    @Override
-    public @Nullable Pair<TextRange, String> getErrorForStringFragment(Pair<TextRange, String> fragment, JsonStringLiteral stringLiteral) {
-        if (fragment.getSecond().chars().anyMatch(c -> c <= '\u001F')) { // fragments are cached, string values - aren't; go inside only if we encountered a potentially 'wrong' char
-            final String text = stringLiteral.getText();
-            if (new TextRange(0, text.length()).contains(fragment.first)) {
-                final int startOffset = fragment.first.getStartOffset();
-                final String part = text.substring(startOffset, fragment.first.getEndOffset());
-                char[] array = part.toCharArray();
-                for (int i = 0; i < array.length; i++) {
-                    char c = array[i];
+    override fun getErrorForStringFragment(
+        fragmentText: Pair<TextRange, String>,
+        stringLiteral: JsonStringLiteral
+    ): Pair<TextRange, String>? {
+        if (fragmentText.getSecond().chars()
+                .anyMatch { c: Int -> c <= '\u001F'.code }
+        ) { // fragments are cached, string values - aren't; go inside only if we encountered a potentially 'wrong' char
+            val text = stringLiteral.text
+            if (TextRange(0, text.length).contains(fragmentText.first)) {
+                val startOffset = fragmentText.first.startOffset
+                val part = text.substring(startOffset, fragmentText.first.endOffset)
+                val array = part.toCharArray()
+                for (i in array.indices) {
+                    val c = array[i]
                     if (c <= '\u001F') {
-                        return Pair.create(new TextRange(startOffset + i, startOffset + i + 1),
-                                JsonBundle
-                                        .message("syntax.error.control.char.in.string", "\\u" + Integer.toHexString(c | 0x10000).substring(1)));
+                        return Pair.create(
+                            TextRange(startOffset + i, startOffset + i + 1),
+                            JsonBundle
+                                .message(
+                                    "syntax.error.control.char.in.string",
+                                    "\\u" + Integer.toHexString(c.code or 0x10000).substring(1)
+                                )
+                        )
                     }
                 }
             }
         }
-        final String error = getStringError(fragment.second);
-        return error == null ? null : Pair.create(fragment.first, error);
+        val error = getStringError(fragmentText.second)
+        return if (error == null) null else Pair.create(fragmentText.first, error)
     }
 
-    public static @Nullable String getStringError(String fragmentText) {
-        if (fragmentText.startsWith("\\") && fragmentText.length() > 1 && !VALID_ESCAPE.matcher(fragmentText).matches()) {
-            if (fragmentText.startsWith("\\u")) {
-                return JsonBundle.message("syntax.error.illegal.unicode.escape.sequence");
-            } else {
-                return JsonBundle.message("syntax.error.illegal.escape.sequence");
+    override fun isApplicable(element: PsiElement): Boolean {
+        return JsonDialectUtil.isStandardJson(element)
+    }
+
+    companion object {
+        val VALID_ESCAPE: Pattern = Pattern.compile("\\\\([\"\\\\/bfnrt]|u[0-9a-fA-F]{4})")
+        private val VALID_NUMBER_LITERAL: Pattern = Pattern.compile("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?")
+        const val INF: String = "Infinity"
+        const val MINUS_INF: String = "-Infinity"
+        const val NAN: String = "NaN"
+
+        fun getStringError(fragmentText: String): String? {
+            if (fragmentText.startsWith("\\") && fragmentText.length > 1 && !VALID_ESCAPE.matcher(fragmentText)
+                    .matches()
+            ) {
+                return if (fragmentText.startsWith("\\u")) {
+                    JsonBundle.message("syntax.error.illegal.unicode.escape.sequence")
+                } else {
+                    JsonBundle.message("syntax.error.illegal.escape.sequence")
+                }
             }
+            return null
         }
-        return null;
-    }
-
-    @Override
-    public boolean isApplicable(PsiElement element) {
-        return JsonDialectUtil.isStandardJson(element);
     }
 }

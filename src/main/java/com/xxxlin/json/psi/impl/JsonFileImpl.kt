@@ -1,41 +1,28 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.psi.impl;
+package com.xxxlin.json.psi.impl
 
-import com.intellij.extapi.psi.PsiFileBase;
-import com.intellij.lang.Language;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.psi.FileViewProvider;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.xxxlin.json.psi.JsonFile;
-import com.xxxlin.json.psi.JsonValue;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.extapi.psi.PsiFileBase
+import com.intellij.lang.Language
+import com.intellij.openapi.fileTypes.FileType
+import com.intellij.psi.FileViewProvider
+import com.intellij.psi.util.PsiTreeUtil
+import com.xxxlin.json.psi.JsonFile
+import com.xxxlin.json.psi.JsonValue
 
-import java.util.List;
+class JsonFileImpl(fileViewProvider: FileViewProvider?, language: Language?) : PsiFileBase(
+    fileViewProvider!!, language!!
+), JsonFile {
+    override fun getFileType(): FileType {
+        return viewProvider.fileType
+    }
 
-public final class JsonFileImpl extends PsiFileBase implements JsonFile {
+    override val topLevelValue: JsonValue?
+        get() = PsiTreeUtil.getChildOfType(this, JsonValue::class.java)
 
-  public JsonFileImpl(FileViewProvider fileViewProvider, Language language) {
-    super(fileViewProvider, language);
-  }
+    override val allTopLevelValues: List<JsonValue>
+        get() = PsiTreeUtil.getChildrenOfTypeAsList(this, JsonValue::class.java)
 
-  @Override
-  public @NotNull FileType getFileType() {
-    return getViewProvider().getFileType();
-  }
-
-  @Override
-  public @Nullable JsonValue getTopLevelValue() {
-    return PsiTreeUtil.getChildOfType(this, JsonValue.class);
-  }
-
-  @Override
-  public @NotNull List<JsonValue> getAllTopLevelValues() {
-    return PsiTreeUtil.getChildrenOfTypeAsList(this, JsonValue.class);
-  }
-
-  @Override
-  public String toString() {
-    return "JsonFile: " + getName();
-  }
+    override fun toString(): String {
+        return "JsonFile: $name"
+    }
 }

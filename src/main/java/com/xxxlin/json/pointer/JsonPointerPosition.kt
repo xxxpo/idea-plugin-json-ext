@@ -1,180 +1,162 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.pointer;
+package com.xxxlin.json.pointer
 
-import com.intellij.util.containers.ContainerUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.intellij.util.containers.ContainerUtil
+import com.jetbrains.jsonSchema.JsonPointerUtil
+import java.util.stream.Collectors
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import static com.jetbrains.jsonSchema.JsonPointerUtil.*;
-
-public final class JsonPointerPosition {
-
-  public JsonPointerPosition() {
-    this.steps = new ArrayList<>();
-  }
-
-  private JsonPointerPosition(List<Step> steps) {
-    this.steps = steps;
-  }
-
-  public static JsonPointerPosition createSingleProperty(String property) {
-    return new JsonPointerPosition(ContainerUtil.createMaybeSingletonList(Step.createPropertyStep(property)));
-  }
-
-  public static JsonPointerPosition parsePointer(@NotNull String pointer) {
-    final List<String> chain = split(normalizeSlashes(normalizeId(pointer)));
-    List<Step> steps = new ArrayList<>(chain.size());
-    for (String s: chain) {
-      try {
-        steps.add(Step.createArrayElementStep(Integer.parseInt(s)));
-      }
-      catch (NumberFormatException e) {
-        steps.add(Step.createPropertyStep(unescapeJsonPointerPart(s)));
-      }
-    }
-    return new JsonPointerPosition(steps);
-  }
-
-  List<Step> getSteps() {
-    return steps;
-  }
-
-  private final List<Step> steps;
-
-  public void addPrecedingStep(int value) {
-    steps.add(0, Step.createArrayElementStep(value));
-  }
-
-  public void addFollowingStep(int value) {
-    steps.add(Step.createArrayElementStep(value));
-  }
-
-  public void addPrecedingStep(String value) {
-    steps.add(0, Step.createPropertyStep(value));
-  }
-
-  public void addFollowingStep(String value) {
-    steps.add(Step.createPropertyStep(value));
-  }
-
-  public void replaceStep(int pos, int value) {
-    steps.set(pos, Step.createArrayElementStep(value));
-  }
-
-  public void replaceStep(int pos, String value) {
-    steps.set(pos, Step.createPropertyStep(value));
-  }
-
-  public boolean isEmpty() {
-    return steps.isEmpty();
-  }
-
-  public boolean isArray(int pos) {
-    return checkPosInRange(pos) && steps.get(pos).isFromArray();
-  }
-
-  public boolean isObject(int pos) {
-    return checkPosInRange(pos) && steps.get(pos).isFromObject();
-  }
-
-  public List<String> getStepNames() {
-    return ContainerUtil.map(steps, s -> s.getName());
-  }
-
-  public @Nullable JsonPointerPosition skip(int count) {
-    return checkPosInRangeIncl(count) ? new JsonPointerPosition(steps.subList(count, steps.size())) : null;
-  }
-
-  public @Nullable JsonPointerPosition trimTail(int count) {
-    return checkPosInRangeIncl(count) ? new JsonPointerPosition(steps.subList(0, steps.size() - count)) : null;
-  }
-
-  public @Nullable String getLastName() {
-    final Step last = ContainerUtil.getLastItem(steps);
-    return last == null ? null : last.getName();
-  }
-
-  public @Nullable String getFirstName() {
-    final Step last = ContainerUtil.getFirstItem(steps);
-    return last == null ? null : last.getName();
-  }
-
-  public int getFirstIndex() {
-    final Step last = ContainerUtil.getFirstItem(steps);
-    return last == null ? -1 : last.getIdx();
-  }
-
-  public int size() {
-    return steps.size();
-  }
-
-  public void updateFrom(JsonPointerPosition from) {
-    steps.clear();
-    steps.addAll(from.steps);
-  }
-
-  public String toJsonPointer() {
-    return "/" + steps.stream().map(step -> escapeForJsonPointer(step.myName == null ? String.valueOf(step.myIdx) : step.myName)).collect(Collectors.joining("/"));
-  }
-
-  @Override
-  public String toString() {
-    return steps.stream().map(Object::toString).collect(Collectors.joining("->", "steps: <", ">"));
-  }
-
-  private boolean checkPosInRange(int pos) {
-    return steps.size() > pos;
-  }
-
-  private boolean checkPosInRangeIncl(int pos) {
-    return steps.size() >= pos;
-  }
-
-  static final class Step {
-    private final @Nullable String myName;
-    private final int myIdx;
-
-    private Step(@Nullable String name, int idx) {
-      myName = name;
-      myIdx = idx;
+class JsonPointerPosition {
+    constructor() {
+        this.steps = ArrayList()
     }
 
-    public static Step createPropertyStep(final @NotNull String name) {
-      return new Step(name, -1);
+    private constructor(steps: MutableList<Step>) {
+        this.steps = steps
     }
 
-    public static Step createArrayElementStep(final int idx) {
-      assert idx >= 0;
-      return new Step(null, idx);
+    fun getSteps(): List<Step> {
+        return steps
     }
 
-    public boolean isFromObject() {
-      return myName != null;
+    private val steps: MutableList<Step>
+
+    fun addPrecedingStep(value: Int) {
+        steps.add(0, Step.createArrayElementStep(value))
     }
 
-    public boolean isFromArray() {
-      return myName == null;
+    fun addFollowingStep(value: Int) {
+        steps.add(Step.createArrayElementStep(value))
     }
 
-    public @Nullable String getName() {
-      return myName;
+    fun addPrecedingStep(value: String) {
+        steps.add(0, Step.createPropertyStep(value))
     }
 
-    public int getIdx() {
-      return myIdx;
+    fun addFollowingStep(value: String) {
+        steps.add(Step.createPropertyStep(value))
     }
 
-    @Override
-    public String toString() {
-      String format = "?%s";
-      if (myName != null) format = "{%s}";
-      if (myIdx >= 0) format = "[%s]";
-      return String.format(format, myName != null ? myName : (myIdx >= 0 ? String.valueOf(myIdx) : "null"));
+    fun replaceStep(pos: Int, value: Int) {
+        steps[pos] = Step.createArrayElementStep(value)
     }
 
-  }
+    fun replaceStep(pos: Int, value: String) {
+        steps[pos] = Step.createPropertyStep(value)
+    }
+
+    val isEmpty: Boolean
+        get() = steps.isEmpty()
+
+    fun isArray(pos: Int): Boolean {
+        return checkPosInRange(pos) && steps[pos].isFromArray
+    }
+
+    fun isObject(pos: Int): Boolean {
+        return checkPosInRange(pos) && steps[pos].isFromObject
+    }
+
+    val stepNames: List<String?>
+        get() = ContainerUtil.map(steps) { s: Step -> s.name }
+
+    fun skip(count: Int): JsonPointerPosition? {
+        return if (checkPosInRangeIncl(count)) JsonPointerPosition(steps.subList(count, steps.size)) else null
+    }
+
+    fun trimTail(count: Int): JsonPointerPosition? {
+        return if (checkPosInRangeIncl(count)) JsonPointerPosition(steps.subList(0, steps.size - count)) else null
+    }
+
+    val lastName: String?
+        get() {
+            val last = ContainerUtil.getLastItem(steps)
+            return last?.name
+        }
+
+    val firstName: String?
+        get() {
+            val last = ContainerUtil.getFirstItem(steps)
+            return last?.name
+        }
+
+    val firstIndex: Int
+        get() {
+            val last = ContainerUtil.getFirstItem(steps)
+            return last?.idx ?: -1
+        }
+
+    fun size(): Int {
+        return steps.size
+    }
+
+    fun updateFrom(from: JsonPointerPosition) {
+        steps.clear()
+        steps.addAll(from.steps)
+    }
+
+    fun toJsonPointer(): String {
+        return "/" + steps.stream().map { step: Step ->
+            JsonPointerUtil.escapeForJsonPointer(
+                step.name ?: step.idx.toString()
+            )
+        }.collect(Collectors.joining("/"))
+    }
+
+    override fun toString(): String {
+        return steps.stream().map { obj: Step -> obj.toString() }
+            .collect(Collectors.joining("->", "steps: <", ">"))
+    }
+
+    private fun checkPosInRange(pos: Int): Boolean {
+        return steps.size > pos
+    }
+
+    private fun checkPosInRangeIncl(pos: Int): Boolean {
+        return steps.size >= pos
+    }
+
+    class Step private constructor(val name: String?, val idx: Int) {
+        val isFromObject: Boolean
+            get() = name != null
+
+        val isFromArray: Boolean
+            get() = name == null
+
+        override fun toString(): String {
+            var format = "?%s"
+            if (name != null) format = "{%s}"
+            if (idx >= 0) format = "[%s]"
+            return String.format(format, name ?: if (idx >= 0) idx.toString() else "null")
+        }
+
+        companion object {
+            fun createPropertyStep(name: String): Step {
+                return Step(name, -1)
+            }
+
+            fun createArrayElementStep(idx: Int): Step {
+                assert(idx >= 0)
+                return Step(null, idx)
+            }
+        }
+    }
+
+    companion object {
+        fun createSingleProperty(property: String): JsonPointerPosition {
+            return JsonPointerPosition(ContainerUtil.createMaybeSingletonList(Step.createPropertyStep(property)))
+        }
+
+        @JvmStatic
+        fun parsePointer(pointer: String): JsonPointerPosition {
+            val chain = JsonPointerUtil.split(JsonPointerUtil.normalizeSlashes(JsonPointerUtil.normalizeId(pointer)))
+            val steps: MutableList<Step> = ArrayList(chain.size)
+            for (s in chain) {
+                try {
+                    steps.add(Step.createArrayElementStep(s.toInt()))
+                } catch (e: NumberFormatException) {
+                    steps.add(Step.createPropertyStep(JsonPointerUtil.unescapeJsonPointerPart(s)))
+                }
+            }
+            return JsonPointerPosition(steps)
+        }
+    }
 }

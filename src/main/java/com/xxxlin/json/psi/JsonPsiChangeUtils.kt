@@ -1,43 +1,45 @@
 // Copyright 2000-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
-package com.xxxlin.json.psi;
+package com.xxxlin.json.psi
 
-import com.xxxlin.json.JsonElementTypes;
-import com.intellij.lang.ASTNode;
-import com.intellij.psi.TokenType;
+import com.intellij.lang.ASTNode
+import com.intellij.psi.TokenType
+import com.xxxlin.json.JsonElementTypes
 
-public final class JsonPsiChangeUtils {
-  public static void removeCommaSeparatedFromList(final ASTNode myNode, final ASTNode parent) {
-    ASTNode from = myNode, to = myNode.getTreeNext();
+object JsonPsiChangeUtils {
+    @JvmStatic
+    fun removeCommaSeparatedFromList(myNode: ASTNode, parent: ASTNode) {
+        var from = myNode
+        var to = myNode.treeNext
 
-    boolean seenComma = false;
+        var seenComma = false
 
-    ASTNode toCandidate = to;
-    while (toCandidate != null && toCandidate.getElementType() == TokenType.WHITE_SPACE) {
-      toCandidate = toCandidate.getTreeNext();
+        var toCandidate = to
+        while (toCandidate != null && toCandidate.elementType === TokenType.WHITE_SPACE) {
+            toCandidate = toCandidate.treeNext
+        }
+
+        if (toCandidate != null && toCandidate.elementType === JsonElementTypes.COMMA) {
+            toCandidate = toCandidate.treeNext
+            to = toCandidate
+            seenComma = true
+
+            if (to != null && to.elementType === TokenType.WHITE_SPACE) {
+                to = to.treeNext
+            }
+        }
+
+        if (!seenComma) {
+            var treePrev = from.treePrev
+
+            while (treePrev != null && treePrev.elementType === TokenType.WHITE_SPACE) {
+                from = treePrev
+                treePrev = treePrev.treePrev
+            }
+            if (treePrev != null && treePrev.elementType === JsonElementTypes.COMMA) {
+                from = treePrev
+            }
+        }
+
+        parent.removeRange(from, to)
     }
-
-    if (toCandidate != null && toCandidate.getElementType() == JsonElementTypes.COMMA) {
-      toCandidate = toCandidate.getTreeNext();
-      to = toCandidate;
-      seenComma = true;
-
-      if (to != null && to.getElementType() == TokenType.WHITE_SPACE) {
-        to = to.getTreeNext();
-      }
-    }
-
-    if (!seenComma) {
-      ASTNode treePrev = from.getTreePrev();
-
-      while (treePrev != null && treePrev.getElementType() == TokenType.WHITE_SPACE) {
-        from = treePrev;
-        treePrev = treePrev.getTreePrev();
-      }
-      if (treePrev != null && treePrev.getElementType() == JsonElementTypes.COMMA) {
-        from = treePrev;
-      }
-    }
-
-    parent.removeRange(from, to);
-  }
 }

@@ -1,45 +1,47 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.codeinsight;
+package com.xxxlin.json.codeinsight
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
-import com.xxxlin.json.psi.JsonArray;
-import com.xxxlin.json.psi.JsonProperty;
-import com.xxxlin.json.psi.JsonStringLiteral;
-import org.jetbrains.annotations.NotNull;
-
-import static com.intellij.patterns.PlatformPatterns.psiElement;
+import com.intellij.codeInsight.completion.*
+import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.patterns.PlatformPatterns
+import com.intellij.util.ProcessingContext
+import com.xxxlin.json.psi.JsonArray
+import com.xxxlin.json.psi.JsonProperty
+import com.xxxlin.json.psi.JsonStringLiteral
 
 /**
  * @author Mikhail Golubev
  */
-public class JsonCompletionContributor extends CompletionContributor {
-    private static final PsiElementPattern.Capture<PsiElement> AFTER_COLON_IN_PROPERTY = psiElement()
-            .afterLeaf(":").withSuperParent(2, JsonProperty.class)
-            .andNot(psiElement().withParent(JsonStringLiteral.class));
+class JsonCompletionContributor : CompletionContributor() {
 
-    private static final PsiElementPattern.Capture<PsiElement> AFTER_COMMA_OR_BRACKET_IN_ARRAY = psiElement()
-            .afterLeaf("[", ",").withSuperParent(2, JsonArray.class)
-            .andNot(psiElement().withParent(JsonStringLiteral.class));
+    companion object {
+        private val AFTER_COLON_IN_PROPERTY = PlatformPatterns.psiElement()
+            .afterLeaf(":").withSuperParent(2, JsonProperty::class.java)
+            .andNot(PlatformPatterns.psiElement().withParent(JsonStringLiteral::class.java))
 
-    public JsonCompletionContributor() {
-        extend(CompletionType.BASIC, AFTER_COLON_IN_PROPERTY, MyKeywordsCompletionProvider.INSTANCE);
-        extend(CompletionType.BASIC, AFTER_COMMA_OR_BRACKET_IN_ARRAY, MyKeywordsCompletionProvider.INSTANCE);
+        private val AFTER_COMMA_OR_BRACKET_IN_ARRAY = PlatformPatterns.psiElement()
+            .afterLeaf("[", ",").withSuperParent(2, JsonArray::class.java)
+            .andNot(PlatformPatterns.psiElement().withParent(JsonStringLiteral::class.java))
     }
 
-    private static final class MyKeywordsCompletionProvider extends CompletionProvider<CompletionParameters> {
-        private static final MyKeywordsCompletionProvider INSTANCE = new MyKeywordsCompletionProvider();
-        private static final String[] KEYWORDS = new String[]{"null", "true", "false"};
+    init {
+        extend(CompletionType.BASIC, AFTER_COLON_IN_PROPERTY, MyKeywordsCompletionProvider.INSTANCE)
+        extend(CompletionType.BASIC, AFTER_COMMA_OR_BRACKET_IN_ARRAY, MyKeywordsCompletionProvider.INSTANCE)
+    }
 
-        @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters,
-                                      @NotNull ProcessingContext context,
-                                      @NotNull CompletionResultSet result) {
-            for (String keyword : KEYWORDS) {
-                result.addElement(LookupElementBuilder.create(keyword).bold());
+    private class MyKeywordsCompletionProvider : CompletionProvider<CompletionParameters>() {
+        companion object {
+            val INSTANCE: MyKeywordsCompletionProvider = MyKeywordsCompletionProvider()
+            private val KEYWORDS = arrayOf("null", "true", "false")
+        }
+
+        override fun addCompletions(
+            parameters: CompletionParameters,
+            context: ProcessingContext,
+            result: CompletionResultSet
+        ) {
+            for (keyword in KEYWORDS) {
+                result.addElement(LookupElementBuilder.create(keyword).bold())
             }
         }
     }

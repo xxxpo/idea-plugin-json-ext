@@ -1,17 +1,14 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json.surroundWith;
+package com.xxxlin.json.surroundWith
 
-import com.xxxlin.json.JsonBundle;
-import org.jetbrains.annotations.NotNull;
+import com.xxxlin.json.JsonBundle.message
 
-public final class JsonWithArrayLiteralSurrounder extends JsonSurrounderBase {
-    @Override
-    public String getTemplateDescription() {
-        return JsonBundle.message("surround.with.array.literal.desc");
+class JsonWithArrayLiteralSurrounder : JsonSurrounderBase() {
+    override fun getTemplateDescription(): String {
+        return message("surround.with.array.literal.desc")
     }
 
-    @Override
-    protected @NotNull String createReplacementText(@NotNull String firstElement) {
-        return "[" + firstElement + "]";
+    override fun createReplacementText(textInRange: String): String {
+        return "[$textInRange]"
     }
 }

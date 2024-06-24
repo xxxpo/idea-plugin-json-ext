@@ -1,10 +1,9 @@
-package com.xxxlin.json.psi;
+package com.xxxlin.json.psi
 
-import com.intellij.psi.NavigatablePsiElement;
-import com.intellij.psi.PsiElement;
+import com.intellij.psi.NavigatablePsiElement
+import com.intellij.psi.PsiElement
 
 /**
  * @author Mikhail Golubev
  */
-public interface JsonElement extends PsiElement, NavigatablePsiElement {
-}
+interface JsonElement : PsiElement, NavigatablePsiElement

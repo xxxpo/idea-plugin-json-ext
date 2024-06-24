@@ -1,26 +1,33 @@
 // Copyright 2000-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
-package com.xxxlin.json;
+package com.xxxlin.json
 
-import com.intellij.DynamicBundle;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NonNls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.PropertyKey;
+import com.intellij.DynamicBundle
+import com.intellij.util.ArrayUtil
+import com.xxxlin.utils.BundleBase.message
+import org.jetbrains.annotations.Nls
+import org.jetbrains.annotations.NonNls
+import org.jetbrains.annotations.PropertyKey
+import java.util.*
+import java.util.function.Supplier
 
-import java.util.function.Supplier;
+object JsonBundle {
+    const val BUNDLE = "messages.JsonExtBundle"
+    private val INSTANCE: ResourceBundle = DynamicBundle.getBundle(
+        BUNDLE, JsonBundle::class.java
+    )
 
-public final class JsonBundle {
-  public static final @NonNls String BUNDLE = "messages.JsonBundle";
-  private static final DynamicBundle INSTANCE = new DynamicBundle(JsonBundle.class, BUNDLE);
+    @JvmStatic
+    fun message(key: @PropertyKey(resourceBundle = BUNDLE) String, vararg params: Any): @Nls String {
+        return message(INSTANCE, key, *params)
+    }
 
-  private JsonBundle() {
-  }
-
-  public static @NotNull @Nls String message(@NotNull @PropertyKey(resourceBundle = BUNDLE) String key, Object @NotNull ... params) {
-    return INSTANCE.getMessage(key, params);
-  }
-
-  public static @NotNull Supplier<@Nls String> messagePointer(@NotNull @PropertyKey(resourceBundle = BUNDLE) String key, Object @NotNull ... params) {
-    return INSTANCE.getLazyMessage(key, params);
-  }
+    fun messagePointer(key: @PropertyKey(resourceBundle = BUNDLE) String, vararg params: Any): Supplier<String> {
+        val actualParams: Array<out Any> =
+            if (params.isEmpty()) {
+                ArrayUtil.EMPTY_OBJECT_ARRAY
+            } else {
+                params
+            }
+        return Supplier { message(key, *actualParams) }
+    }
 }

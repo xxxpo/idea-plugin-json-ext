@@ -1,21 +1,15 @@
 /*
  * Copyright 2000-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
  */
-package com.xxxlin.json.psi.impl;
+package com.xxxlin.json.psi.impl
 
-import com.xxxlin.json.psi.JsonLiteral;
-import com.intellij.lang.ASTNode;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry;
-import org.jetbrains.annotations.NotNull;
+import com.intellij.lang.ASTNode
+import com.intellij.psi.PsiReference
+import com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry
+import com.xxxlin.json.psi.JsonLiteral
 
-abstract class JsonLiteralMixin extends JsonElementImpl implements JsonLiteral {
-  protected JsonLiteralMixin(@NotNull ASTNode node) {
-    super(node);
-  }
-
-  @Override
-  public PsiReference @NotNull [] getReferences() {
-    return ReferenceProvidersRegistry.getReferencesFromProviders(this);
-  }
+internal abstract class JsonLiteralMixin protected constructor(node: ASTNode) : JsonElementImpl(node), JsonLiteral {
+    override fun getReferences(): Array<PsiReference> {
+        return ReferenceProvidersRegistry.getReferencesFromProviders(this)
+    }
 }

@@ -1,23 +1,16 @@
-package com.xxxlin.json.psi.impl;
+package com.xxxlin.json.psi.impl
 
-import com.intellij.extapi.psi.ASTWrapperPsiElement;
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.util.text.StringUtil;
-import com.xxxlin.json.psi.JsonElement;
-import org.jetbrains.annotations.NotNull;
+import com.intellij.extapi.psi.ASTWrapperPsiElement
+import com.intellij.lang.ASTNode
+import com.intellij.openapi.util.text.StringUtil
+import com.xxxlin.json.psi.JsonElement
 
 /**
  * @author Mikhail Golubev
  */
-public class JsonElementImpl extends ASTWrapperPsiElement implements JsonElement {
-
-  public JsonElementImpl(@NotNull ASTNode node) {
-    super(node);
-  }
-
-  @Override
-  public String toString() {
-    final String className = getClass().getSimpleName();
-    return StringUtil.trimEnd(className, "Impl");
-  }
+open class JsonElementImpl(node: ASTNode) : ASTWrapperPsiElement(node), JsonElement {
+    override fun toString(): String {
+        val className = javaClass.simpleName
+        return StringUtil.trimEnd(className, "Impl")
+    }
 }

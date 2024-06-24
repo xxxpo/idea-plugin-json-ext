@@ -1,24 +1,26 @@
-package com.xxxlin.json;
+package com.xxxlin.json
 
-import com.intellij.lang.Language;
+import com.intellij.lang.Language
 
-public class JsonLanguage extends Language {
-    public static final JsonLanguage INSTANCE = new JsonLanguage();
+open class JsonLanguage : Language {
+    protected constructor(
+        id: String, vararg mimeTypes: String
+    ) : super(
+        INSTANCE, id, *mimeTypes
+    )
 
-    protected JsonLanguage(String ID, String... mimeTypes) {
-        super(INSTANCE, ID, mimeTypes);
+    private constructor() : super("json-ext")
+
+    override fun isCaseSensitive(): Boolean {
+        return true
     }
 
-    private JsonLanguage() {
-        super("json-ext");
+    fun hasPermissiveStrings(): Boolean {
+        return false
     }
 
-    @Override
-    public boolean isCaseSensitive() {
-        return true;
-    }
-
-    public boolean hasPermissiveStrings() {
-        return false;
+    companion object {
+        @JvmField
+        val INSTANCE: JsonLanguage = JsonLanguage()
     }
 }

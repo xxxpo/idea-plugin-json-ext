@@ -1,35 +1,36 @@
 // Copyright 2000-2022 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
-package com.xxxlin.json;
+package com.xxxlin.json
 
-import com.intellij.psi.tree.TokenSet;
+import com.intellij.psi.tree.TokenSet
 
-import static com.xxxlin.json.JsonElementTypes.*;
+object JsonTokenSets {
+    @JvmField
+    val STRING_LITERALS: TokenSet = TokenSet.create(
+        JsonElementTypes.SINGLE_QUOTED_STRING,
+        JsonElementTypes.DOUBLE_QUOTED_STRING
+    )
 
-public final class JsonTokenSets {
-    public static final TokenSet STRING_LITERALS = TokenSet.create(
-            SINGLE_QUOTED_STRING,
-            DOUBLE_QUOTED_STRING
-    );
+    val JSON_CONTAINERS: TokenSet = TokenSet.create(
+        JsonElementTypes.OBJECT,
+        JsonElementTypes.ARRAY
+    )
+    val JSON_KEYWORDS: TokenSet = TokenSet.create(
+        JsonElementTypes.TRUE,
+        JsonElementTypes.FALSE,
+        JsonElementTypes.NULL
+    )
+    val JSON_LITERALS: TokenSet = TokenSet.create(
+        JsonElementTypes.STRING_LITERAL,
+        JsonElementTypes.NUMBER_LITERAL,
+        JsonElementTypes.NULL_LITERAL,
+        JsonElementTypes.TRUE,
+        JsonElementTypes.FALSE
+    )
 
-    public static final TokenSet JSON_CONTAINERS = TokenSet.create(
-            OBJECT,
-            ARRAY
-    );
-    public static final TokenSet JSON_KEYWORDS = TokenSet.create(
-            TRUE,
-            FALSE,
-            NULL
-    );
-    public static final TokenSet JSON_LITERALS = TokenSet.create(
-            STRING_LITERAL,
-            NUMBER_LITERAL,
-            NULL_LITERAL,
-            TRUE,
-            FALSE
-    );
-    public static final TokenSet JSON_COMMENTARIES = TokenSet.create(
-            BLOCK_COMMENT,
-            LINE_COMMENT1,
-            LINE_COMMENT2
-    );
+    @JvmField
+    val JSON_COMMENTARIES: TokenSet = TokenSet.create(
+        JsonElementTypes.BLOCK_COMMENT,
+        JsonElementTypes.LINE_COMMENT1,
+        JsonElementTypes.LINE_COMMENT2
+    )
 }
