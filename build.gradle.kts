@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.xxxlin.json.ext"
-version = "0.0.1"
+version = "0.0.19"
 
 val localProperty = Properties()
 localProperty.load(project.rootProject.file("local.properties").inputStream())
