@@ -1,7 +1,5 @@
 package com.xxxlin.json
 
-import com.xxxlin.json.psi.JsonFile
-import com.xxxlin.json.psi.JsonProperty
 import com.intellij.lang.ASTNode
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
@@ -9,6 +7,9 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FileTypeIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.tree.IElementType
+import com.xxxlin.json.psi.JsonFile
+import com.xxxlin.json.psi.JsonObject
+import com.xxxlin.json.psi.JsonProperty
 
 object JsonLanguageUtil {
 
@@ -63,7 +64,7 @@ object JsonLanguageUtil {
         val result = ArrayList<JsonFile>()
         val virtualFiles = FileTypeIndex.getFiles(JsonFileType.INSTANCE, GlobalSearchScope.projectScope(project))
         for (virtualFile in virtualFiles) {
-            val file = PsiManager.getInstance(project).findFile(virtualFile) as JsonFile? ?: continue
+            val file = PsiManager.getInstance(project).findFile(virtualFile) as? JsonFile? ?: continue
             result.add(file)
         }
         return result
@@ -84,6 +85,34 @@ object JsonLanguageUtil {
         return null
     }
 
+    /**
+     * 检查多级key
+     */
+    fun hasJsonKeys(project: Project, keys: List<String>): JsonProperty? {
+        val fileList = findAllJsonFile(project)
+        for (jsonFile in fileList) {
+            var node: PsiElement? = jsonFile.children.firstOrNull {
+                it is JsonObject
+            }
+            for (index in keys.indices) {
+                val key = keys[index]
+                node = node?.children?.filterIsInstance<JsonProperty>()?.firstOrNull {
+                    it.name == key
+                }
+                if (index != keys.lastIndex) {
+                    node = node?.children?.filterIsInstance<JsonObject>()?.firstOrNull()
+                }
+                if (node == null) {
+                    break
+                }
+            }
+            if (node != null) {
+                return node as? JsonProperty
+            }
+        }
+        return null
+    }
+
     fun findAllJsonKey(project: Project, key: String): List<JsonProperty> {
         val result = mutableListOf<JsonProperty>()
         val fileList = findAllJsonFile(project)
@@ -95,6 +124,38 @@ object JsonLanguageUtil {
                 if (property.name == key) {
                     result.add(property)
                 }
+            }
+        }
+        return result
+    }
+
+    /**
+     * 在所有json文件中搜索符合条件的多级key对应的属性列表
+     */
+    fun findAllJsonKeys(project: Project, keys: List<String>): List<List<JsonProperty>> {
+        val result = mutableListOf<MutableList<JsonProperty>>()
+        val fileList = findAllJsonFile(project)
+        for (jsonFile in fileList) {
+            val list = mutableListOf<JsonProperty>()
+            var node: PsiElement? = jsonFile.children.firstOrNull {
+                it is JsonObject
+            }
+            for (index in keys.indices) {
+                val key = keys[index]
+                node = node?.children?.filterIsInstance<JsonProperty>()?.firstOrNull {
+                    it.name == key
+                }
+                if (node != null) {
+                    list.add(node)
+                }
+                if (index != keys.lastIndex) {
+                    node = node?.children?.filterIsInstance<JsonObject>()?.firstOrNull()
+                }
+            }
+            if (node != null && node is JsonProperty && list.size == keys.size) {
+                list.add(node)
+                result.add(list)
+                break
             }
         }
         return result
