@@ -12,6 +12,11 @@ import org.jetbrains.kotlin.psi.KtStringTemplateExpression
  */
 class JsonKeyNameReferenceContributorByKotlin : PsiReferenceContributor() {
 
+    private val slotNameRegex: Regex = Regex(
+        "\\{[a-zA-Z_]+}",
+        hashSetOf(RegexOption.IGNORE_CASE)
+    )
+
     override fun registerReferenceProviders(registrar: PsiReferenceRegistrar) {
         registrar.registerReferenceProvider(
             PlatformPatterns.psiElement(KtStringTemplateExpression::class.java),
@@ -25,10 +30,24 @@ class JsonKeyNameReferenceContributorByKotlin : PsiReferenceContributor() {
                     if (value.length > 2 && value.startsWith("\"") && value.endsWith("\"")) {
                         val search = value.substring(1, value.length - 1)
                         val textRange = TextRange(1, value.length - 1)
-                        return JsonLanguageUtil.findAllJsonKey(element.project, search)
-                            .map {
-                                JsonKeyReference(element, textRange, it)
-                            }.toTypedArray()
+
+                        val result = mutableListOf<PsiReference>()
+                        result.addAll(JsonLanguageUtil.findAllJsonKey(element.project, search).map {
+                            JsonKeyReference(element, textRange, it)
+                        })
+
+                        // 处理带 {} 的文本
+                        val list = slotNameRegex.findAll(value, 0)
+                        val iterator = list.iterator()
+                        while (iterator.hasNext()) {
+                            val row = iterator.next()
+                            val slotName = row.value
+                            result.addAll(JsonLanguageUtil.findAllJsonKey(element.project, slotName).map {
+                                JsonKeyReference(element, TextRange(row.range.first, row.range.last + 1), it)
+                            })
+                        }
+
+                        return result.toTypedArray()
                     }
                     return emptyArray()
                 }

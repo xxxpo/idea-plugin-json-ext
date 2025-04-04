@@ -28,12 +28,19 @@ class JavaAnnotator : Annotator {
         if (value.isEmpty()) {
             return
         }
-        val jsonProperty = JsonLanguageUtil.hasJsonKey(element.project, value)
-        if (jsonProperty != null) {
-            val keyRange = TextRange(element.textRange.startOffset + 1, element.textRange.endOffset - 1)
-            holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(keyRange)
-                .textAttributes(JsonSyntaxHighlighterFactory.JSON_NUMBER)
-                .create()
+
+        if(value.contains('#')) {
+            val ary = value.split("/", "#")
+
+
+        } else {
+            val jsonProperty = JsonLanguageUtil.hasJsonKey(element.project, value)
+            if (jsonProperty != null) {
+                val keyRange = TextRange(element.textRange.startOffset + 1, element.textRange.endOffset - 1)
+                holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(keyRange)
+                    .textAttributes(JsonSyntaxHighlighterFactory.JSON_NUMBER)
+                    .create()
+            }
         }
     }
 }
