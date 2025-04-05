@@ -54,6 +54,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.xxxlin.json.editor.JsonEditorOptions"/>
+        <applicationService serviceImplementation="com.xxxlin.json.editor.JsonFeatureOptions"/>
 
         <!-- 定义语言 -->
         <fileType
@@ -94,9 +95,9 @@
                 implementationClass="com.xxxlin.json.findUsages.JsonFindUsagesProvider"/>
 
         <!-- 结构视图 -->
-<!--        <lang.psiStructureViewFactory-->
-<!--                language="json-ext"-->
-<!--                implementationClass="com.xxxlin.json.structureView.JsonStructureViewBuilderFactory"/>-->
+        <!--        <lang.psiStructureViewFactory-->
+        <!--                language="json-ext"-->
+        <!--                implementationClass="com.xxxlin.json.structureView.JsonStructureViewBuilderFactory"/>-->
 
         <!-- 面包屑 -->
         <breadcrumbsInfoProvider
@@ -113,9 +114,9 @@
                 level="WARNING"
                 implementationClass="com.xxxlin.json.codeinsight.JsonDuplicatePropertyKeysInspection"/>
 
-<!--        <lang.foldingBuilder-->
-<!--                language="json-ext"-->
-<!--                implementationClass="com.xxxlin.json.editor.folding.JsonFoldingBuilder"/>-->
+        <lang.foldingBuilder
+                language="json-ext"
+                implementationClass="com.xxxlin.json.editor.folding.JsonFoldingBuilder"/>
 
         <!-- 代码上下移动逻辑 -->
         <statementUpDownMover
@@ -138,6 +139,14 @@
         <editorSmartKeysConfigurable
                 instance="com.xxxlin.json.editor.JsonSmartKeysConfigurable"
                 id="editor.preferences.jsonOptions"/>
+
+        <!-- 插件功能设置 -->
+        <projectConfigurable
+                parentId=""
+                id="editor.preferences.jsonExtFeatureOptions"
+                displayName="JSON Ext"
+                nonDefaultProject="true"
+                instance="com.xxxlin.json.editor.JsonFeatureConfigurable"/>
 
         <!-- 代码样式和格式化 -->
         <codeStyleSettingsProvider
@@ -202,6 +211,11 @@
         <annotator
                 language="kotlin"
                 implementationClass="com.xxxlin.json.annotator.KotlinAnnotator"/>
+
+        <!-- 字符串注解 json -->
+        <annotator
+                language="json-ext"
+                implementationClass="com.xxxlin.json.annotator.JsonAnnotator"/>
 
         <!-- 查找引用信息 java -->
         <psi.referenceContributor

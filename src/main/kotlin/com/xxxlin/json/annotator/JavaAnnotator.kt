@@ -7,7 +7,9 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiLiteralExpression
 import com.xxxlin.json.JsonLanguageUtil
+import com.xxxlin.json.editor.JsonFeatureOptions
 import com.xxxlin.json.highlighting.JsonSyntaxHighlighterFactory
+import com.xxxlin.utils.LogUtil
 import com.xxxlin.utils.contains
 
 /**
@@ -15,7 +17,16 @@ import com.xxxlin.utils.contains
  */
 class JavaAnnotator : Annotator {
 
+    private val slotNameRegex: Regex = Regex(
+        "\\{[a-zA-Z_]+}",
+        hashSetOf(RegexOption.IGNORE_CASE)
+    )
+
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
+        if (!JsonFeatureOptions.instance.MATCH_STRING) {
+            return
+        }
+
         if (element is PsiLiteralExpression) {
             annotateString(element, holder)
         }
@@ -25,32 +36,76 @@ class JavaAnnotator : Annotator {
      * 引用规则标色
      */
     private fun annotateString(element: PsiLiteralExpression, holder: AnnotationHolder) {
-        val value = element.value as String? ?: return
-        if (value.isEmpty()) {
+        val text = element.value as String? ?: return
+        if (text.isEmpty()) {
             return
         }
 
-        if (value.contains('/', '#')) {
-            val keys = value.split("/", "#")
+        val textRange = TextRange(element.textRange.startOffset + 1, element.textRange.endOffset - 1)
+
+        // 处理普通文本
+        procString(text, textRange, element, holder)
+        // 处理带 {} 的文本
+        if (JsonFeatureOptions.instance.MATCH_STRING_SLOT_BRACE) {
+            procSlot(text, textRange, element, holder)
+        }
+    }
+
+    /**
+     * 处理带 {} 的文本
+     */
+    private fun procSlot(
+        text: String,
+        textRange: TextRange,
+        element: PsiLiteralExpression,
+        holder: AnnotationHolder
+    ) {
+        val list = slotNameRegex.findAll(text, 0)
+        val iterator = list.iterator()
+        while (iterator.hasNext()) {
+            val row = iterator.next()
+            val range = row.range
+            val slotName = row.value
+            val keyRange = TextRange(
+                textRange.startOffset + range.first,
+                textRange.startOffset + range.last + 1
+            )
+            procString(slotName, keyRange, element, holder)
+        }
+    }
+
+    /**
+     * 查字字符串引用高亮
+     */
+    private fun procString(
+        text: String,
+        textRange: TextRange,
+        element: PsiLiteralExpression,
+        holder: AnnotationHolder
+    ) {
+        // 处理多级key
+        if (text.contains('/', '#')) {
+            val keys = text.split("/", "#")
             val jsonProperty = JsonLanguageUtil.hasJsonKeys(element.project, keys)
             if (jsonProperty != null) {
-                var begin = element.textRange.startOffset + 1
+                var begin = textRange.startOffset
                 for (index in keys.indices) {
                     val key = keys[index]
                     val keyRange = TextRange(begin, begin + key.length)
                     begin += key.length + 1
-                    holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(keyRange)
+                    holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                        .range(keyRange)
                         .textAttributes(JsonSyntaxHighlighterFactory.JSON_NUMBER)
                         .create()
                 }
             }
-            return
         }
 
-        val jsonProperty = JsonLanguageUtil.hasJsonKey(element.project, value)
+        // 完整文本
+        val jsonProperty = JsonLanguageUtil.hasJsonKey(element.project, text)
         if (jsonProperty != null) {
-            val keyRange = TextRange(element.textRange.startOffset + 1, element.textRange.endOffset - 1)
-            holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(keyRange)
+            holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                .range(textRange)
                 .textAttributes(JsonSyntaxHighlighterFactory.JSON_NUMBER)
                 .create()
         }
